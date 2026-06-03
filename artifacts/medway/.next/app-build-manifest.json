@@ -20,6 +20,11 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/mw/overview/route.js"
+    ],
+    "/mw/suggestions/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/mw/suggestions/route.js"
     ]
   }
 }
