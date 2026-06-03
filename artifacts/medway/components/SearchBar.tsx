@@ -43,7 +43,7 @@ export default function SearchBar({
   const fetchSuggestions = useCallback(async (val: string) => {
     if (val.length < 2) { setSuggestions([]); return; }
     try {
-      const res = await fetch(`/api/suggestions?q=${encodeURIComponent(val)}`);
+      const res = await fetch(`/mw/suggestions?q=${encodeURIComponent(val)}`);
       if (res.ok) {
         const data = await res.json();
         setSuggestions(data);

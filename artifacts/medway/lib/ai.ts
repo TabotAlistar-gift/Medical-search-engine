@@ -25,34 +25,46 @@ export async function generateOverview(
   const groq = getGroq();
 
   if (!groq) {
-    // Fallback: use Wikipedia context directly
-    const sentences = context.split(". ").slice(0, 6).join(". ");
+    // Fallback: extract the most relevant sentences from Wikipedia context
+    const sentences = context
+      .split(/(?<=[.!?])\s+/)
+      .filter((s) => s.length > 30)
+      .slice(0, 5)
+      .join(" ");
     return {
-      summary: sentences || `Search results for "${query}" are shown below from trusted medical sources.`,
+      summary:
+        sentences ||
+        `Search results for "${query}" are shown below from trusted medical sources.`,
       keyFacts: [],
       relatedQuestions: [],
       isAIGenerated: false,
-      disclaimer: "This information is for educational purposes only. Always consult a healthcare professional.",
+      disclaimer:
+        "This information is for educational purposes only. Always consult a healthcare professional.",
     };
   }
 
-  const prompt = `You are MedAI, a medical information assistant. Provide a clear, accurate, and accessible overview of the medical topic: "${query}".
+  const prompt = `A user searched for: "${query}"
 
-${context ? `Use this Wikipedia context as a base:\n${context}\n\n` : ""}
+${context ? `Background information from trusted sources:\n${context}\n\n` : ""}
 
-Respond ONLY with valid JSON in this exact format:
+Your task: Directly and completely answer the user's query as an AI Overview, exactly like Google's AI Overview feature. 
+
+Rules:
+- If it's a "who" question → identify the person(s) and explain their role with context
+- If it's a "what is" question → define it clearly and explain it
+- If it's a "how" question → explain the process or mechanism
+- If it's a "why" question → explain the reasons/causes
+- If it's a symptom/condition search → explain what it is, causes, and key facts
+- Always be direct — start the answer immediately, don't say "Great question" or repeat the query
+- Write 2–3 focused paragraphs that actually answer the question
+- Keep language clear for a general audience
+
+Respond ONLY with valid JSON:
 {
-  "summary": "2-3 paragraph comprehensive overview in plain language (300-400 words)",
-  "keyFacts": ["fact 1", "fact 2", "fact 3", "fact 4", "fact 5"],
-  "relatedQuestions": ["question 1", "question 2", "question 3", "question 4", "question 5"]
-}
-
-Guidelines:
-- Write for a general audience, not medical professionals
-- Be accurate, evidence-based, and neutral
-- Include symptoms, causes, and treatments where relevant
-- keyFacts should be concise bullet-point facts
-- relatedQuestions should be natural follow-up questions people would ask`;
+  "summary": "2-3 paragraphs directly answering the query (200-350 words total)",
+  "keyFacts": ["short fact 1", "short fact 2", "short fact 3", "short fact 4", "short fact 5"],
+  "relatedQuestions": ["follow-up question 1", "follow-up question 2", "follow-up question 3", "follow-up question 4", "follow-up question 5"]
+}`;
 
   try {
     const completion = await groq.chat.completions.create({
@@ -61,7 +73,7 @@ Guidelines:
         {
           role: "system",
           content:
-            "You are a knowledgeable medical information assistant. Always provide accurate, evidence-based information in plain language. Always include a note that this is not a substitute for professional medical advice. Respond only with valid JSON.",
+            "You are a medical AI assistant that directly answers health and medical questions. Always give specific, accurate answers — never vague overviews. If asked 'who discovered X', name the person. If asked 'what causes Y', explain the causes. Respond only with valid JSON.",
         },
         { role: "user", content: prompt },
       ],
@@ -81,12 +93,17 @@ Guidelines:
         : [],
       isAIGenerated: true,
       disclaimer:
-        "This AI-generated overview is for educational purposes only and should not replace professional medical advice, diagnosis, or treatment.",
+        "AI-generated overview for educational purposes only. Not a substitute for professional medical advice.",
     };
   } catch (err) {
     console.error("Groq overview error:", err);
+    const sentences = context
+      .split(/(?<=[.!?])\s+/)
+      .filter((s) => s.length > 30)
+      .slice(0, 5)
+      .join(" ");
     return {
-      summary: context.split(". ").slice(0, 6).join(". "),
+      summary: sentences,
       keyFacts: [],
       relatedQuestions: [],
       isAIGenerated: false,
@@ -142,7 +159,6 @@ export async function getSuggestions(prefix: string): Promise<string[]> {
 
   const groq = getGroq();
   if (!groq) {
-    // Return Wikipedia-style suggestions without AI
     return [
       `${prefix} symptoms`,
       `${prefix} treatment`,
@@ -167,7 +183,6 @@ export async function getSuggestions(prefix: string): Promise<string[]> {
     });
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
-    // Try to extract array from response
     const match = raw.match(/\[[\s\S]*?\]/);
     if (match) {
       const arr = JSON.parse(match[0]);

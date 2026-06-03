@@ -20,13 +20,13 @@ interface OverviewData {
 
 interface OverviewCardProps {
   query: string;
-  onRelatedQuestion?: (q: string) => void;
+  onRelatedQuestions?: (questions: string[]) => void;
   onDiveDeeper?: () => void;
 }
 
 export default function OverviewCard({
   query,
-  onRelatedQuestion,
+  onRelatedQuestions,
   onDiveDeeper,
 }: OverviewCardProps) {
   const [data, setData] = useState<OverviewData | null>(null);
@@ -40,7 +40,7 @@ export default function OverviewCard({
     setError(false);
     setData(null);
 
-    fetch(`/api/overview?q=${encodeURIComponent(query)}`)
+    fetch(`/mw/overview?q=${encodeURIComponent(query)}`)
       .then((r) => {
         if (!r.ok) throw new Error("Failed");
         return r.json();
@@ -48,12 +48,16 @@ export default function OverviewCard({
       .then((d: OverviewData) => {
         setData(d);
         setLoading(false);
+        // Bubble up AI-generated related questions to parent
+        if (d.relatedQuestions?.length) {
+          onRelatedQuestions?.(d.relatedQuestions);
+        }
       })
       .catch(() => {
         setError(true);
         setLoading(false);
       });
-  }, [query]);
+  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) return null;
 
@@ -66,11 +70,11 @@ export default function OverviewCard({
             <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
           <span className="font-semibold text-primary-900 text-sm">
-            {data?.isAIGenerated ? "AI Overview" : "Overview"}
+            AI Overview
           </span>
           {data?.isAIGenerated && (
             <span className="text-xs text-primary-600 bg-primary-100 px-2 py-0.5 rounded-full font-medium">
-              Powered by AI
+              Powered by Groq
             </span>
           )}
         </div>
@@ -89,7 +93,7 @@ export default function OverviewCard({
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-primary-700">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">Generating medical overview…</span>
+                <span className="text-sm">Generating overview…</span>
               </div>
               <div className="space-y-2">
                 {[80, 95, 70, 85, 60].map((w, i) => (
@@ -103,7 +107,7 @@ export default function OverviewCard({
             </div>
           ) : data ? (
             <>
-              {/* Summary */}
+              {/* Summary — direct answer to the query */}
               <div className="text-slate-700 text-sm leading-relaxed mb-4">
                 {data.summary.split("\n\n").map((para, i) => (
                   <p key={i} className={i > 0 ? "mt-3" : ""}>
@@ -129,7 +133,7 @@ export default function OverviewCard({
                 </div>
               )}
 
-              {/* Dive Deeper Button */}
+              {/* Dive Deeper */}
               {onDiveDeeper && (
                 <button
                   onClick={onDiveDeeper}

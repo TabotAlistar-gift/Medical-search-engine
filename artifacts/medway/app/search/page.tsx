@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Stethoscope, ArrowLeft } from "lucide-react";
 import SearchBar from "@/components/SearchBar";
 import SearchClient from "./SearchClient";
-import { performSearch, generateRelatedQuestions } from "@/lib/search";
+import { performSearch } from "@/lib/search";
 import type { Metadata } from "next";
 
 interface Props {
@@ -39,11 +39,7 @@ export default async function SearchPage({ searchParams }: Props) {
     );
   }
 
-  // Fetch search results and related questions in parallel (server-side)
-  const [searchData, relatedQuestions] = await Promise.all([
-    performSearch(query),
-    Promise.resolve(generateRelatedQuestions(query)),
-  ]);
+  const searchData = await performSearch(query);
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -75,7 +71,7 @@ export default async function SearchPage({ searchParams }: Props) {
           </Link>
         </div>
 
-        {/* Search meta info */}
+        {/* Tab bar */}
         <div className="px-4 sm:px-6 pb-2 hidden sm:block">
           <nav className="flex gap-4 text-xs text-slate-500">
             <span className="text-primary-700 font-medium border-b-2 border-primary-700 pb-1">
@@ -90,10 +86,7 @@ export default async function SearchPage({ searchParams }: Props) {
 
       {/* Client-side interactive content */}
       <div className="flex-1">
-        <SearchClient
-          searchData={searchData}
-          relatedQuestions={relatedQuestions}
-        />
+        <SearchClient searchData={searchData} />
       </div>
 
       <footer className="text-center py-3 text-xs text-slate-400 border-t border-slate-100 bg-white">

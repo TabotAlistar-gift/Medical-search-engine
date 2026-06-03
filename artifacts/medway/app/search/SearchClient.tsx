@@ -10,14 +10,11 @@ import type { SearchResponse } from "@/lib/search";
 
 interface SearchClientProps {
   searchData: SearchResponse;
-  relatedQuestions: string[];
 }
 
-export default function SearchClient({
-  searchData,
-  relatedQuestions,
-}: SearchClientProps) {
+export default function SearchClient({ searchData }: SearchClientProps) {
   const [chatOpen, setChatOpen] = useState(false);
+  const [relatedQuestions, setRelatedQuestions] = useState<string[]>([]);
   const { query, results } = searchData;
 
   return (
@@ -28,14 +25,17 @@ export default function SearchClient({
         style={{ maxWidth: chatOpen ? "calc(100% - 380px)" : "100%" }}
       >
         <div className="max-w-2xl px-4 sm:px-6 py-6">
-          {/* AI Overview */}
+          {/* AI Overview — fetches and answers the query directly */}
           <OverviewCard
             query={query}
+            onRelatedQuestions={setRelatedQuestions}
             onDiveDeeper={() => setChatOpen(true)}
           />
 
-          {/* Related Questions */}
-          <RelatedQuestions questions={relatedQuestions} />
+          {/* People Also Ask — populated from AI overview response */}
+          {relatedQuestions.length > 0 && (
+            <RelatedQuestions questions={relatedQuestions} />
+          )}
 
           {/* Results */}
           <div className="mb-4">

@@ -14,6 +14,16 @@ export interface WikipediaSummary {
 }
 
 const WIKI_BASE = "https://en.wikipedia.org";
+const TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("timeout")), ms)
+    ),
+  ]);
+}
 
 export async function searchWikipedia(
   query: string,
@@ -29,10 +39,13 @@ export async function searchWikipedia(
     url.searchParams.set("format", "json");
     url.searchParams.set("origin", "*");
 
-    const res = await fetch(url.toString(), {
-      headers: { "User-Agent": "MedWay/1.0 (medical search engine)" },
-      next: { revalidate: 3600 },
-    });
+    const res = await withTimeout(
+      fetch(url.toString(), {
+        headers: { "User-Agent": "MedWay/1.0 (medical search engine)" },
+        next: { revalidate: 3600 },
+      }),
+      TIMEOUT_MS
+    );
 
     if (!res.ok) return [];
     const data = await res.json();
@@ -56,15 +69,15 @@ export async function getWikipediaSummary(
 ): Promise<WikipediaSummary | null> {
   try {
     const encoded = encodeURIComponent(title.replace(/ /g, "_"));
-    const res = await fetch(
-      `${WIKI_BASE}/api/rest_v1/page/summary/${encoded}`,
-      {
+    const res = await withTimeout(
+      fetch(`${WIKI_BASE}/api/rest_v1/page/summary/${encoded}`, {
         headers: {
           "User-Agent": "MedWay/1.0 (medical search engine)",
           Accept: "application/json",
         },
         next: { revalidate: 3600 },
-      }
+      }),
+      TIMEOUT_MS
     );
     if (!res.ok) return null;
     return await res.json();
@@ -76,8 +89,14 @@ export async function getWikipediaSummary(
 export async function getWikipediaSummaryForQuery(
   query: string
 ): Promise<string> {
-  const results = await searchWikipedia(query, 1);
-  if (!results.length) return "";
-  const summary = await getWikipediaSummary(results[0].title);
-  return summary?.extract ?? "";
+  try {
+    const results = await searchWikipedia(query, 1);
+    if (!results.length) return "";
+    const summary = await getWikipediaSummary(results[0].title);
+    // Limit to first 1500 chars so the AI prompt stays manageable
+    const extract = summary?.extract ?? "";
+    return extract.slice(0, 1500);
+  } catch {
+    return "";
+  }
 }

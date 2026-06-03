@@ -51,7 +51,7 @@ export default function AiChatPanel({ query, onClose }: AiChatPanelProps) {
     abortRef.current = new AbortController();
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch("/mw/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
