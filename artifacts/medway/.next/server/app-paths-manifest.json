@@ -1,6 +1,9 @@
 {
-  "/mw/suggestions/route": "app/mw/suggestions/route.js",
+  "/mw/timeline/route": "app/mw/timeline/route.js",
+  "/mw/study/route": "app/mw/study/route.js",
+  "/mw/symptoms/route": "app/mw/symptoms/route.js",
   "/mw/overview/route": "app/mw/overview/route.js",
+  "/mw/interaction/route": "app/mw/interaction/route.js",
   "/page": "app/page.js",
   "/search/page": "app/search/page.js"
 }

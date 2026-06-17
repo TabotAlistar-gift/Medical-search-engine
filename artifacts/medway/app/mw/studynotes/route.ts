@@ -1,0 +1,24 @@
+import { NextRequest, NextResponse } from "next/server";
+import { generateStudyNotes } from "@/lib/ai";
+import { getWikipediaSummaryForQuery } from "@/lib/wikipedia";
+
+export const maxDuration = 30;
+
+export async function GET(req: NextRequest) {
+  const query = req.nextUrl.searchParams.get("q")?.trim();
+  if (!query) {
+    return NextResponse.json({ error: "Missing query" }, { status: 400 });
+  }
+
+  try {
+    const context = await getWikipediaSummaryForQuery(query);
+    const data = await generateStudyNotes(query, context);
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error("Study notes route error:", err);
+    return NextResponse.json(
+      { error: "Failed to generate study notes" },
+      { status: 500 }
+    );
+  }
+}

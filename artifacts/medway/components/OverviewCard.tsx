@@ -8,9 +8,17 @@ import {
   AlertCircle,
   Loader2,
   Brain,
+  CheckCircle2,
 } from "lucide-react";
 
+interface OverviewSection {
+  heading: string;
+  points: string[];
+}
+
 interface OverviewData {
+  intro: string;
+  sections: OverviewSection[];
   summary: string;
   keyFacts: string[];
   relatedQuestions: string[];
@@ -22,6 +30,26 @@ interface OverviewCardProps {
   query: string;
   onRelatedQuestions?: (questions: string[]) => void;
   onDiveDeeper?: () => void;
+}
+
+// Map common section headings to a colour accent
+const sectionAccent: Record<string, string> = {
+  Symptoms:      "text-rose-600",
+  Causes:        "text-amber-600",
+  "Risk Factors":"text-orange-600",
+  Diagnosis:     "text-violet-600",
+  Treatment:     "text-teal-600",
+  Prevention:    "text-green-600",
+  "Key Facts":   "text-blue-600",
+  "How It Works":"text-indigo-600",
+  "Who Is Affected": "text-pink-600",
+  Background:    "text-slate-600",
+  Contributions: "text-cyan-600",
+  Legacy:        "text-purple-600",
+};
+
+function getAccent(heading: string): string {
+  return sectionAccent[heading] ?? "text-primary-700";
 }
 
 export default function OverviewCard({
@@ -48,7 +76,6 @@ export default function OverviewCard({
       .then((d: OverviewData) => {
         setData(d);
         setLoading(false);
-        // Bubble up AI-generated related questions to parent
         if (d.relatedQuestions?.length) {
           onRelatedQuestions?.(d.relatedQuestions);
         }
@@ -57,7 +84,7 @@ export default function OverviewCard({
         setError(true);
         setLoading(false);
       });
-  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [query]);
 
   if (error) return null;
 
@@ -70,11 +97,11 @@ export default function OverviewCard({
             <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
           <span className="font-semibold text-primary-900 text-sm">
-            AI Overview
+            Overview
           </span>
           {data?.isAIGenerated && (
             <span className="text-xs text-primary-600 bg-primary-100 px-2 py-0.5 rounded-full font-medium">
-              Powered by Groq
+              AI
             </span>
           )}
         </div>
@@ -107,33 +134,54 @@ export default function OverviewCard({
             </div>
           ) : data ? (
             <>
-              {/* Summary — direct answer to the query */}
-              <div className="text-slate-700 text-sm leading-relaxed mb-4">
-                {data.summary.split("\n\n").map((para, i) => (
-                  <p key={i} className={i > 0 ? "mt-3" : ""}>
-                    {para}
-                  </p>
-                ))}
-              </div>
+              {/* ── Intro paragraph ── */}
+              {(data.intro || data.summary) && (
+                <p className="text-slate-700 text-sm leading-relaxed mb-5 border-l-2 border-primary-300 pl-3">
+                  {data.intro || data.summary}
+                </p>
+              )}
 
-              {/* Key Facts */}
-              {data.keyFacts.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-xs font-semibold text-primary-700 uppercase tracking-wide mb-2">
+              {/* ── Structured sections ── */}
+              {data.sections && data.sections.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                  {data.sections.map((section, si) => (
+                    <div key={si} className="bg-white/60 rounded-xl px-4 py-3 shadow-sm">
+                      {/* Section heading */}
+                      <p
+                        className={`text-xs font-bold uppercase tracking-wider mb-2 ${getAccent(section.heading)}`}
+                      >
+                        {section.heading}
+                      </p>
+                      {/* Bullet points */}
+                      <ul className="space-y-1.5">
+                        {section.points.map((point, pi) => (
+                          <li key={pi} className="flex items-start gap-2 text-sm text-slate-700">
+                            <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-teal-500" />
+                            <span>{point}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : data.keyFacts && data.keyFacts.length > 0 ? (
+                /* Fallback: show keyFacts if no sections */
+                <div className="bg-white/60 rounded-xl px-4 py-3 shadow-sm mb-5">
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2 text-primary-700">
                     Key Facts
                   </p>
                   <ul className="space-y-1.5">
                     {data.keyFacts.map((fact, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
-                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
-                        {fact}
+                        <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-teal-500" />
+                        <span>{fact}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-              )}
+              ) : null}
 
-              {/* Dive Deeper */}
+              {/* ── Dive Deeper button ── */}
               {onDiveDeeper && (
                 <button
                   onClick={onDiveDeeper}
@@ -144,7 +192,7 @@ export default function OverviewCard({
                 </button>
               )}
 
-              {/* Disclaimer */}
+              {/* ── Disclaimer ── */}
               <div className="flex items-start gap-2 text-xs text-slate-500 border-t border-blue-100 pt-3">
                 <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-500" />
                 <span>{data.disclaimer}</span>

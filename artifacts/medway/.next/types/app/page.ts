@@ -1,4 +1,4 @@
-// File: /home/runner/workspace/artifacts/medway/app/page.tsx
+// File: C:\Users\Alistar Gift\Downloads\Medi-Search-Engine\Medi-Search-Engine\artifacts\medway\app\page.tsx
 import * as entry from '../../../app/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

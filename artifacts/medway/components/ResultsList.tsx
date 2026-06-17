@@ -1,10 +1,13 @@
-import { ExternalLink, BookOpen, Globe, FlaskConical } from "lucide-react";
+import { BookOpen, Globe, FlaskConical, Bookmark } from "lucide-react";
 import { getDomainName, getSourceColor, getSourceInitials, truncate } from "@/lib/utils";
 import type { SearchResult } from "@/lib/search";
 
 interface ResultsListProps {
   results: SearchResult[];
   query: string;
+  isLoggedIn?: boolean;
+  savedUrls?: Set<string>;
+  onToggleSave?: (result: SearchResult) => void;
 }
 
 const categoryIcon = {
@@ -35,7 +38,13 @@ function FaviconBadge({ source, domain }: { source: string; domain: string }) {
   );
 }
 
-export default function ResultsList({ results, query }: ResultsListProps) {
+export default function ResultsList({
+  results,
+  query,
+  isLoggedIn = false,
+  savedUrls = new Set(),
+  onToggleSave,
+}: ResultsListProps) {
   if (!results.length) {
     return (
       <div className="text-center py-16 text-slate-500">
@@ -45,14 +54,13 @@ export default function ResultsList({ results, query }: ResultsListProps) {
     );
   }
 
-  // Group results by category for visual separation
-  const wikis = results.filter((r) => r.category === "wikipedia");
+  const wikis   = results.filter((r) => r.category === "wikipedia");
   const trusted = results.filter((r) => r.category === "trusted");
-  const pubmed = results.filter((r) => r.category === "pubmed");
+  const pubmed  = results.filter((r) => r.category === "pubmed");
 
   return (
     <div className="space-y-6">
-      {/* Wikipedia results */}
+      {/* Wikipedia */}
       {wikis.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-3">
@@ -63,7 +71,13 @@ export default function ResultsList({ results, query }: ResultsListProps) {
           </div>
           <div className="space-y-1">
             {wikis.map((r) => (
-              <ResultCard key={r.id} result={r} />
+              <ResultCard
+                key={r.id}
+                result={r}
+                isLoggedIn={isLoggedIn}
+                isSaved={savedUrls.has(r.url)}
+                onToggleSave={onToggleSave}
+              />
             ))}
           </div>
         </section>
@@ -80,13 +94,19 @@ export default function ResultsList({ results, query }: ResultsListProps) {
           </div>
           <div className="space-y-1">
             {trusted.map((r) => (
-              <ResultCard key={r.id} result={r} />
+              <ResultCard
+                key={r.id}
+                result={r}
+                isLoggedIn={isLoggedIn}
+                isSaved={savedUrls.has(r.url)}
+                onToggleSave={onToggleSave}
+              />
             ))}
           </div>
         </section>
       )}
 
-      {/* PubMed research */}
+      {/* PubMed */}
       {pubmed.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-3">
@@ -97,7 +117,13 @@ export default function ResultsList({ results, query }: ResultsListProps) {
           </div>
           <div className="space-y-1">
             {pubmed.map((r) => (
-              <ResultCard key={r.id} result={r} />
+              <ResultCard
+                key={r.id}
+                result={r}
+                isLoggedIn={isLoggedIn}
+                isSaved={savedUrls.has(r.url)}
+                onToggleSave={onToggleSave}
+              />
             ))}
           </div>
         </section>
@@ -106,43 +132,69 @@ export default function ResultsList({ results, query }: ResultsListProps) {
   );
 }
 
-function ResultCard({ result }: { result: SearchResult }) {
+// ── Result Card ───────────────────────────────────────────────────────────────
+
+interface ResultCardProps {
+  result: SearchResult;
+  isLoggedIn: boolean;
+  isSaved: boolean;
+  onToggleSave?: (result: SearchResult) => void;
+}
+
+function ResultCard({ result, isLoggedIn, isSaved, onToggleSave }: ResultCardProps) {
   const domain = getDomainName(result.url);
   const Icon = categoryIcon[result.category];
 
   return (
-    <a
-      href={result.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="result-card block px-4 py-4 rounded-xl border border-transparent hover:border-slate-100 group"
-    >
+    <div className="result-card relative block px-4 py-4 rounded-xl border border-transparent hover:border-slate-100 group">
+      {/* Bookmark button — only visible when logged in */}
+      {isLoggedIn && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSave?.(result);
+          }}
+          title={isSaved ? "Remove from saved" : "Save article"}
+          className={`absolute top-3 right-3 p-1.5 rounded-lg transition-all duration-150 z-10 ${
+            isSaved
+              ? "text-primary-600 bg-primary-50 hover:bg-red-50 hover:text-red-500"
+              : "text-slate-300 hover:text-primary-600 hover:bg-primary-50 opacity-0 group-hover:opacity-100"
+          }`}
+        >
+          <Bookmark
+            className="w-3.5 h-3.5"
+            fill={isSaved ? "currentColor" : "none"}
+          />
+        </button>
+      )}
+
       {/* Source breadcrumb */}
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <FaviconBadge source={result.sourceLabel} domain={domain} />
-        <span className="text-xs text-slate-500">{domain}</span>
-        <span className="text-slate-300">›</span>
-        <span className="text-xs text-slate-400 truncate max-w-xs">{result.title}</span>
-        <ExternalLink className="w-3 h-3 text-slate-300 group-hover:text-slate-500 transition-colors ml-auto shrink-0" />
-      </div>
+      <a href={result.url} className="block">
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <FaviconBadge source={result.sourceLabel} domain={domain} />
+          <span className="text-xs text-slate-500">{domain}</span>
+          <span className="text-slate-300">›</span>
+          <span className="text-xs text-slate-400 truncate max-w-xs">{result.title}</span>
+        </div>
 
-      {/* Title */}
-      <h3 className="text-primary-700 font-medium text-base group-hover:underline leading-snug mb-1">
-        {result.title}
-      </h3>
+        {/* Title */}
+        <h3 className="text-primary-700 font-medium text-base group-hover:underline leading-snug mb-1 pr-8">
+          {result.title}
+        </h3>
 
-      {/* Description */}
-      <p className="text-sm text-slate-600 leading-relaxed">
-        {truncate(result.description, 200)}
-      </p>
+        {/* Description */}
+        <p className="text-sm text-slate-600 leading-relaxed">
+          {truncate(result.description, 200)}
+        </p>
 
-      {/* Category badge */}
-      <div className="mt-2 flex items-center gap-1.5">
-        <Icon className="w-3 h-3 text-teal-600" />
-        <span className="text-[11px] text-teal-700 font-medium">
-          {categoryLabel[result.category]}
-        </span>
-      </div>
-    </a>
+        {/* Category badge */}
+        <div className="mt-2 flex items-center gap-1.5">
+          <Icon className="w-3 h-3 text-teal-600" />
+          <span className="text-[11px] text-teal-700 font-medium">
+            {categoryLabel[result.category]}
+          </span>
+        </div>
+      </a>
+    </div>
   );
 }

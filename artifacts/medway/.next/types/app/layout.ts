@@ -1,4 +1,4 @@
-// File: /home/runner/workspace/artifacts/medway/app/layout.tsx
+// File: C:\Users\Alistar Gift\Downloads\Medi-Search-Engine\Medi-Search-Engine\artifacts\medway\app\layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

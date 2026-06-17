@@ -11,6 +11,11 @@
       "static/chunks/main-app.js",
       "static/chunks/app/page.js"
     ],
+    "/mw/suggestions/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/mw/suggestions/route.js"
+    ],
     "/search/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -21,10 +26,35 @@
       "static/chunks/main-app.js",
       "static/chunks/app/mw/overview/route.js"
     ],
-    "/mw/suggestions/route": [
+    "/mw/interaction/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/mw/suggestions/route.js"
+      "static/chunks/app/mw/interaction/route.js"
+    ],
+    "/mw/learningpath/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/mw/learningpath/route.js"
+    ],
+    "/mw/study/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/mw/study/route.js"
+    ],
+    "/mw/symptoms/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/mw/symptoms/route.js"
+    ],
+    "/mw/timeline/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/mw/timeline/route.js"
+    ],
+    "/mw/studynotes/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/mw/studynotes/route.js"
     ]
   }
 }

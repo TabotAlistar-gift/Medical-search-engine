@@ -24,7 +24,6 @@ npm install
 ```bash
 cp .env.example .env.local
 ```
-
 Edit `.env.local` and add your **free** Groq API key:
 - Get one at: https://console.groq.com (free, no credit card required)
 - Without a key, the app still works — AI Overview uses Wikipedia summaries instead

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
-import { Stethoscope, Shield, BookOpen, Zap } from "lucide-react";
+import AccountButton from "@/components/AccountButton";
+import { Shield, BookOpen, Zap } from "lucide-react";
+import Logo from "@/components/Logo";
 
 const EXAMPLE_SEARCHES = [
   "Type 2 diabetes",
@@ -26,23 +28,22 @@ export default function HomePage() {
       {/* Top nav */}
       <nav className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary-700 flex items-center justify-center">
-            <Stethoscope className="w-4 h-4 text-white" />
-          </div>
+          <Logo size={28} />
           <span className="font-bold text-primary-900 text-lg tracking-tight">
             MedWay
           </span>
         </div>
         <div className="flex items-center gap-4 text-sm text-slate-500">
-          <Link href="/search?q=symptoms" className="hover:text-primary-700 transition-colors">
+          <Link href="/search?q=symptoms" className="hover:text-primary-700 transition-colors hidden sm:block">
             Symptoms
           </Link>
-          <Link href="/search?q=drug+interactions" className="hover:text-primary-700 transition-colors">
+          <Link href="/search?q=drug+interactions" className="hover:text-primary-700 transition-colors hidden sm:block">
             Medications
           </Link>
-          <Link href="/search?q=mental+health" className="hover:text-primary-700 transition-colors">
+          <Link href="/search?q=mental+health" className="hover:text-primary-700 transition-colors hidden sm:block">
             Mental Health
           </Link>
+          <AccountButton />
         </div>
       </nav>
 
@@ -51,10 +52,8 @@ export default function HomePage() {
         {/* Logo block */}
         <div className="flex flex-col items-center mb-10 animate-fade-in">
           <div className="relative mb-5">
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary-700 to-teal-600 flex items-center justify-center shadow-xl">
-              <Stethoscope className="w-10 h-10 text-white" />
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-teal-400 flex items-center justify-center">
+            <Logo size={80} className="drop-shadow-lg" />
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-teal-400 flex items-center justify-center shadow-md">
               <Zap className="w-3 h-3 text-white" />
             </div>
           </div>
