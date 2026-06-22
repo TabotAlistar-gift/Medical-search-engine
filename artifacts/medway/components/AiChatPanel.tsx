@@ -11,16 +11,24 @@ interface Message {
 
 interface AiChatPanelProps {
   query: string;
+  mode?: "patient" | "clinician";
   onClose: () => void;
 }
 
-export default function AiChatPanel({ query, onClose }: AiChatPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: `Hi! I'm MedAI, your medical information assistant. I can help you dive deeper into **${query}** or answer any other medical questions you have.\n\nWhat would you like to know?`,
-    },
-  ]);
+export default function AiChatPanel({ query, mode = "patient", onClose }: AiChatPanelProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  useEffect(() => {
+    setMessages([
+      {
+        role: "assistant",
+        content: mode === "clinician"
+          ? `Hello, Doctor. I am MedAI, your clinical information consultant. I can assist with pathophysiological inquiries, ICD diagnostic codes, standard guideline references, or details regarding **${query}**.\n\nHow can I help you today?`
+          : `Hi! I'm MedAI, your medical information assistant. I can help you dive deeper into **${query}** or answer any other medical questions you have.\n\nWhat would you like to know?`,
+      },
+    ]);
+  }, [query, mode]);
+
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -60,6 +68,7 @@ export default function AiChatPanel({ query, onClose }: AiChatPanelProps) {
             content: m.content,
           })),
           query,
+          mode,
         }),
         signal: abortRef.current.signal,
       });
@@ -113,7 +122,9 @@ export default function AiChatPanel({ query, onClose }: AiChatPanelProps) {
     setMessages([
       {
         role: "assistant",
-        content: `Hi! I'm MedAI. Ask me anything about **${query}** or any other medical topic.`,
+        content: mode === "clinician"
+          ? `MedAI Clinical Mode active. How can I assist with your study of **${query}**?`
+          : `Hi! I'm MedAI. Ask me anything about **${query}** or any other medical topic.`,
       },
     ]);
     setInput("");
@@ -154,7 +165,9 @@ export default function AiChatPanel({ query, onClose }: AiChatPanelProps) {
       <div className="flex items-start gap-2 px-4 py-2.5 bg-amber-50 border-b border-amber-100">
         <AlertCircle className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
         <p className="text-xs text-amber-700">
-          For educational purposes only. Not a substitute for professional medical advice.
+          {mode === "clinician"
+            ? "Clinical reference guidance assistant. Always verify active institutional protocols."
+            : "For educational purposes only. Not a substitute for professional medical advice."}
         </p>
       </div>
 

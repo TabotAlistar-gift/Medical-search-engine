@@ -3,9 +3,10 @@ import { streamChatResponse } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { messages, query } = body as {
+  const { messages, query, mode } = body as {
     messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
     query: string;
+    mode?: "patient" | "clinician";
   };
 
   if (!messages || !Array.isArray(messages)) {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        for await (const chunk of streamChatResponse(messages, query ?? "")) {
+        for await (const chunk of streamChatResponse(messages, query ?? "", mode)) {
           controller.enqueue(encoder.encode(chunk));
         }
       } catch (err) {

@@ -10,9 +10,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing query" }, { status: 400 });
   }
 
+  const mode = req.nextUrl.searchParams.get("mode")?.trim() as "patient" | "clinician" | undefined;
+
   try {
     const context = await getWikipediaSummaryForQuery(query);
-    const overview = await generateOverview(query, context);
+    const overview = await generateOverview(query, context, mode);
 
     return NextResponse.json(overview, {
       headers: {
