@@ -1,7 +1,7 @@
 import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
 import AccountButton from "@/components/AccountButton";
-import { Shield, BookOpen, Zap } from "lucide-react";
+import { Shield, Zap } from "lucide-react";
 import Logo from "@/components/Logo";
 
 const EXAMPLE_SEARCHES = [
@@ -105,7 +105,7 @@ export default function HomePage() {
 
       {/* Feature strip */}
       <div className="border-t border-slate-100 bg-slate-50">
-        <div className="max-w-4xl mx-auto px-6 py-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="max-w-4xl mx-auto px-6 py-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FeatureItem
             icon={Shield}
             title="Trusted Sources"
@@ -115,11 +115,6 @@ export default function HomePage() {
             icon={Zap}
             title="AI Overview"
             desc="Instant AI-generated summaries for every search — clear and accessible."
-          />
-          <FeatureItem
-            icon={BookOpen}
-            title="Dive Deeper"
-            desc="Chat with MedAI for personalized follow-up answers about any topic."
           />
         </div>
       </div>

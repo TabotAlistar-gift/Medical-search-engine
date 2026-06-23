@@ -31,7 +31,6 @@ interface OverviewCardProps {
   query: string;
   mode?: "patient" | "clinician";
   onRelatedQuestions?: (questions: string[]) => void;
-  onDiveDeeper?: () => void;
 }
 
 // Map common section headings to a colour accent
@@ -64,7 +63,6 @@ export default function OverviewCard({
   query,
   mode = "patient",
   onRelatedQuestions,
-  onDiveDeeper,
 }: OverviewCardProps) {
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -196,16 +194,7 @@ export default function OverviewCard({
                 </div>
               ) : null}
 
-              {/* ── Dive Deeper button ── */}
-              {onDiveDeeper && (
-                <button
-                  onClick={onDiveDeeper}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-full transition-all duration-200 active:scale-95 mb-4"
-                >
-                  <Brain className="w-4 h-4" />
-                  Dive Deeper with MedAI
-                </button>
-              )}
+
 
               {/* ── Disclaimer ── */}
               <div className="flex items-start gap-2 text-xs text-slate-500 border-t border-blue-100 pt-3">

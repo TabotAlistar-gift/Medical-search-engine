@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AiChatPanel from "@/components/AiChatPanel";
 import OverviewCard from "@/components/OverviewCard";
 import RelatedQuestions from "@/components/RelatedQuestions";
 import ResultsList from "@/components/ResultsList";
@@ -32,7 +31,6 @@ type TabType = "all" | "symptoms" | "study" | "compare";
 
 export default function SearchClient({ searchData }: SearchClientProps) {
   const { isLoggedIn } = useAuth();
-  const [chatOpen, setChatOpen] = useState(false);
   const [relatedQuestions, setRelatedQuestions] = useState<string[]>([]);
   const [savedUrls, setSavedUrls] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<TabType>("all");
@@ -211,10 +209,7 @@ export default function SearchClient({ searchData }: SearchClientProps) {
   return (
     <div className="flex gap-0 min-h-screen relative">
       {/* Main content */}
-      <main
-        className="flex-1 min-w-0 transition-all duration-300 bg-slate-50/30"
-        style={{ maxWidth: chatOpen ? "calc(100% - 380px)" : "100%" }}
-      >
+      <main className="flex-1 min-w-0 bg-slate-50/30">
         {/* Navigation Tab Bar */}
         <div className="border-b border-slate-100 bg-white sticky top-[68px] z-30 shadow-sm px-4 sm:px-6">
           <div className="flex items-center justify-between overflow-x-auto gap-4 py-2">
@@ -321,7 +316,6 @@ export default function SearchClient({ searchData }: SearchClientProps) {
                   query={query}
                   mode={mode}
                   onRelatedQuestions={setRelatedQuestions}
-                  onDiveDeeper={() => setChatOpen(true)}
                 />
               )}
 
@@ -344,24 +338,6 @@ export default function SearchClient({ searchData }: SearchClientProps) {
                 />
               </div>
 
-              {/* Bottom Dive Deeper CTA */}
-              {!chatOpen && (
-                <div className="p-5 bg-gradient-to-r from-primary-50 to-teal-50 rounded-2xl border border-primary-100 flex items-center justify-between shadow-sm">
-                  <div>
-                    <p className="font-semibold text-primary-900 text-sm">Want more detail?</p>
-                    <p className="text-xs text-slate-600 mt-0.5">
-                      Ask MedAI follow-up questions about {query}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setChatOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-full transition-all duration-200 active:scale-95 shrink-0 ml-4 shadow"
-                  >
-                    <Brain className="w-4 h-4" />
-                    Dive Deeper
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
@@ -374,13 +350,6 @@ export default function SearchClient({ searchData }: SearchClientProps) {
 
         </div>
       </main>
-
-      {/* AI Chat Panel */}
-      {chatOpen && mode !== null && (
-        <aside className="w-[380px] shrink-0 border-l border-slate-100 sticky top-0 h-screen overflow-hidden bg-white z-40">
-          <AiChatPanel query={query} mode={mode} onClose={() => setChatOpen(false)} />
-        </aside>
-      )}
 
       {/* Report Customization Modal */}
       {showExportModal && (

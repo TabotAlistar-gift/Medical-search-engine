@@ -1,6 +1,5 @@
 {
   "/mw/overview/route": "app/mw/overview/route.js",
-  "/mw/interaction/route": "app/mw/interaction/route.js",
   "/page": "app/page.js",
   "/search/page": "app/search/page.js"
 }

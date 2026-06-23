@@ -7,7 +7,6 @@ A Google-style medical search engine with AI-powered overviews, trusted source l
 - **AI Overview** — Auto-generated medical summaries for every search
 - **Trusted Sources** — Results from WHO, Mayo Clinic, NIH, PubMed, CDC, MedlinePlus, WebMD, NHS
 - **Related Questions** — People Also Ask section with follow-up queries
-- **MedAI Chat** — "Dive Deeper" AI agent for in-depth medical conversations
 - **Real-time Suggestions** — Autocomplete as you type
 
 ## Quick Start (Local)
