@@ -40,11 +40,6 @@ packages:
   - lib/integrations/*
   - scripts
 
-supportedArchitectures:
-  os:
-    - win32
-  cpu:
-    - x64
 
 catalog:
   '@replit/vite-plugin-cartographer': ^0.5.1
