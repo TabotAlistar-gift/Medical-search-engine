@@ -31,10 +31,7 @@ export interface QuizScore {
   timestamp: string; // ISO string
 }
 
-export interface LearningStepProgress {
-  topic: string;
-  completedSteps: string[]; // List of step titles
-}
+
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -226,43 +223,4 @@ export function saveQuizScore(topic: string, correct: number, total: number): vo
   writeJSON(key, updated);
 }
 
-// ── Study Progress (Learning Paths) ───────────────────────────────────────────
 
-function progressKey(userId: string): string {
-  return `medway_progress_${userId}`;
-}
-
-export function getLearningProgress(): LearningStepProgress[] {
-  const uid = currentUserId();
-  if (!uid) return [];
-  return readJSON<LearningStepProgress[]>(progressKey(uid), []);
-}
-
-export function toggleStepCompleted(topic: string, stepTitle: string): void {
-  const uid = currentUserId();
-  if (!uid) return;
-  const key = progressKey(uid);
-  const current = getLearningProgress();
-  const match = current.find(p => p.topic.toLowerCase() === topic.toLowerCase());
-
-  if (match) {
-    if (match.completedSteps.includes(stepTitle)) {
-      match.completedSteps = match.completedSteps.filter(s => s !== stepTitle);
-    } else {
-      match.completedSteps.push(stepTitle);
-    }
-    writeJSON(key, [...current]);
-  } else {
-    const newItem: LearningStepProgress = {
-      topic,
-      completedSteps: [stepTitle]
-    };
-    writeJSON(key, [...current, newItem]);
-  }
-}
-
-export function isStepCompleted(topic: string, stepTitle: string): boolean {
-  const current = getLearningProgress();
-  const match = current.find(p => p.topic.toLowerCase() === topic.toLowerCase());
-  return match ? match.completedSteps.includes(stepTitle) : false;
-}

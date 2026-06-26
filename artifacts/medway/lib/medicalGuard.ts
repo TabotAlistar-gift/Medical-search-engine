@@ -32,6 +32,7 @@ const MEDICAL_KEYWORDS = [
   "medical", "health", "healthcare", "healthy", "unhealthy", "surgical",
   "pharmaceutical", "biomedical", "pathology", "radiology", "toxicology",
   "epidemiology", "outbreak", "pandemic", "endemic", "quarantine",
+  "expectancy", "survival", "mortality", "longevity", "progression", "lifespan",
 
   // ── Body systems & anatomy ────────────────────────────────────────────────
   "anatomy", "physiology", "body", "organ", "tissue", "cell", "gland",
@@ -196,14 +197,23 @@ function stripEducationalPrefix(q: string): string {
   return q;
 }
 
-/**
- * Returns true if the query is related to medicine, health, biology,
- * genetics, microbiology, biochemistry, or related life sciences.
- * Returns false only for clearly non-medical/non-scientific topics.
- */
+
 export function isMedicalQuery(query: string): boolean {
   const q = query.toLowerCase().trim();
   if (!q) return false;
+
+  // Whole-word medical abbreviation fast-track check
+  const wholeWordMedical = [
+    "als", "ms", "gerd", "uti", "std", "sti", "pcos", "ibd", "ibs", 
+    "hiv", "aids", "tb", "cpr", "icu", "er", "iv", "mri", "ct", "ekg", "ecg",
+    "dna", "rna", "bmi", "adhd", "ocd", "ptsd", "asd", "gbs", "mnd", "hsv", "hpv"
+  ];
+  const words = q.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  for (const word of words) {
+    if (wholeWordMedical.includes(word)) {
+      return true;
+    }
+  }
 
   // Strip educational prefixes to get the core topic
   const topic = stripEducationalPrefix(q);

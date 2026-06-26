@@ -21,7 +21,20 @@ export interface ReportExportData {
   citations?: SearchResult[];
   symptoms?: {
     intro: string;
-    conditions: Array<{ name: string; likelihood: string; explanation: string }>;
+    conditions: Array<{
+      name: string;
+      likelihood: string;
+      explanation: string;
+      confidenceScore?: number;
+      severityAssessment?: string;
+      riskFactors?: string[];
+    }>;
+    urgencyLevel?: string;
+    redFlags?: string[];
+    recommendedTests?: string[];
+    firstAid?: string[];
+    prevention?: string[];
+    relatedDiseases?: string[];
     warning?: string;
   };
   study?: {
@@ -29,10 +42,7 @@ export interface ReportExportData {
     flashcards?: Array<{ question: string; answer: string }>;
     mnemonics?: string[];
   };
-  timeline?: {
-    title: string;
-    events: Array<{ year: string; event: string; detail: string }>;
-  };
+
 }
 
 export function exportMedicalReport(
@@ -213,36 +223,7 @@ export function exportMedicalReport(
             margin-bottom: 4px;
           }
           
-          /* Timeline */
-          .timeline-list {
-            position: relative;
-            border-left: 2px solid #e2e8f0;
-            padding-left: 20px;
-            margin-left: 10px;
-          }
-          .timeline-item {
-            position: relative;
-            margin-bottom: 20px;
-          }
-          .timeline-marker {
-            position: absolute;
-            left: -27px;
-            top: 4px;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background-color: #0d9488;
-            border: 2px solid #ffffff;
-          }
-          .timeline-year {
-            font-weight: 800;
-            color: #0d9488;
-            font-size: 14px;
-          }
-          .timeline-event-title {
-            font-weight: 700;
-            color: #0f172a;
-          }
+
           
           .warning-box {
             background-color: #fffbeb;
@@ -324,9 +305,33 @@ export function exportMedicalReport(
         ${
           data.symptoms
             ? `
-          <h2>Symptom Diagnosis Analysis</h2>
+          <h2>Symptom Triage & Analysis</h2>
           <div class="section-block">
             <p style="margin-bottom: 15px;">${data.symptoms.intro || "Diagnostic mapping for symptoms."}</p>
+            
+            ${
+              data.symptoms.urgencyLevel
+                ? `
+              <div class="warning-box" style="margin-bottom: 20px; font-weight: 600; 
+                ${
+                  data.symptoms.urgencyLevel === "Red" 
+                    ? "background-color: #fef2f2; border: 1px solid #fee2e2; color: #991b1b;" 
+                    : data.symptoms.urgencyLevel === "Yellow" 
+                      ? "background-color: #fffbeb; border: 1px solid #fef3c7; color: #92400e;" 
+                      : "background-color: #f0fdf4; border: 1px solid #dcfce7; color: #166534;"
+                }">
+                Triage Priority: ${
+                  data.symptoms.urgencyLevel === "Red" 
+                    ? "EMERGENCY CARE ADVISED" 
+                    : data.symptoms.urgencyLevel === "Yellow" 
+                      ? "CLINICAL VISIT RECOMMENDED (WITHIN 24H)" 
+                      : "SUPPORTIVE SELF-CARE & MONITORING"
+                }
+              </div>
+            `
+                : ""
+            }
+
             <div style="margin-top: 10px;">
               ${
                 data.symptoms.conditions && data.symptoms.conditions.length > 0
@@ -336,10 +341,13 @@ export function exportMedicalReport(
                         if (cond.likelihood === "High") badgeClass = "badge-high";
                         else if (cond.likelihood === "Moderate") badgeClass = "badge-moderate";
 
+                        const confidenceText = cond.confidenceScore ? ` (Confidence: ${cond.confidenceScore}%)` : "";
+                        const severityText = cond.severityAssessment ? ` [Triage: ${cond.severityAssessment}]` : "";
+
                         return `
                         <div class="condition-row">
                           <div>
-                            <span class="condition-name">${cond.name}</span>
+                            <span class="condition-name">${cond.name}</span> <span style="font-size: 11px; color: #64748b;">${confidenceText}${severityText}</span>
                             <div style="font-size: 12px; color: #475569; margin-top: 2px;">${cond.explanation}</div>
                           </div>
                           <span class="badge ${badgeClass}">${cond.likelihood}</span>
@@ -350,11 +358,51 @@ export function exportMedicalReport(
                   : "<p>No matches analyzed.</p>"
               }
             </div>
+
+            ${
+              data.symptoms.recommendedTests && data.symptoms.recommendedTests.length > 0
+                ? `
+              <div style="margin-top: 20px;">
+                <div class="overview-section-title">Recommended Diagnostic Tests</div>
+                <ul class="overview-points">
+                  ${data.symptoms.recommendedTests.map((t) => `<li>${t}</li>`).join("")}
+                </ul>
+              </div>
+            `
+                : ""
+            }
+
+            ${
+              data.symptoms.firstAid && data.symptoms.firstAid.length > 0
+                ? `
+              <div style="margin-top: 15px;">
+                <div class="overview-section-title">First Aid & Self-Care Guidance</div>
+                <ul class="overview-points">
+                  ${data.symptoms.firstAid.map((t) => `<li>${t}</li>`).join("")}
+                </ul>
+              </div>
+            `
+                : ""
+            }
+
+            ${
+              data.symptoms.prevention && data.symptoms.prevention.length > 0
+                ? `
+              <div style="margin-top: 15px;">
+                <div class="overview-section-title">Prevention Guidelines</div>
+                <ul class="overview-points">
+                  ${data.symptoms.prevention.map((t) => `<li>${t}</li>`).join("")}
+                </ul>
+              </div>
+            `
+                : ""
+            }
+
             ${
               data.symptoms.warning
                 ? `
               <div class="warning-box">
-                <strong>Disclaimer:</strong> ${data.symptoms.warning}
+                <strong>Disclaimer Advisory:</strong> ${data.symptoms.warning}
               </div>
             `
                 : ""
@@ -418,34 +466,7 @@ export function exportMedicalReport(
             : ""
         }
 
-        <!-- 4. TIMELINE -->
-        ${
-          data.timeline
-            ? `
-          <h2>Milestones & Timeline</h2>
-          <div class="section-block">
-            <div class="timeline-list">
-              ${
-                data.timeline.events && data.timeline.events.length > 0
-                  ? data.timeline.events
-                      .map(
-                        (evt) => `
-                    <div class="timeline-item">
-                      <div class="timeline-marker"></div>
-                      <div class="timeline-year">${evt.year}</div>
-                      <div class="timeline-event-title">${evt.event}</div>
-                      <div style="font-size: 13px; color: #475569; margin-top: 2px;">${evt.detail}</div>
-                    </div>
-                  `
-                      )
-                      .join("")
-                  : "<p>No history records logged.</p>"
-              }
-            </div>
-          </div>
-        `
-            : ""
-        }
+
 
         <!-- 5. CITATIONS -->
         ${

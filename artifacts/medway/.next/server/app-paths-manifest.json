@@ -1,9 +1,18 @@
 {
+  "/api/chat/route": "app/api/chat/route.js",
+  "/api/suggestions/route": "app/api/suggestions/route.js",
+  "/mw/chat/route": "app/mw/chat/route.js",
+  "/mw/learningpath/route": "app/mw/learningpath/route.js",
+  "/mw/suggestions/route": "app/mw/suggestions/route.js",
   "/mw/timeline/route": "app/mw/timeline/route.js",
-  "/mw/study/route": "app/mw/study/route.js",
-  "/mw/symptoms/route": "app/mw/symptoms/route.js",
-  "/mw/overview/route": "app/mw/overview/route.js",
+  "/api/overview/route": "app/api/overview/route.js",
   "/mw/interaction/route": "app/mw/interaction/route.js",
+  "/mw/compare/route": "app/mw/compare/route.js",
+  "/mw/study/route": "app/mw/study/route.js",
+  "/mw/studynotes/route": "app/mw/studynotes/route.js",
+  "/mw/symptoms/route": "app/mw/symptoms/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/mw/overview/route": "app/mw/overview/route.js",
   "/page": "app/page.js",
   "/search/page": "app/search/page.js"
 }

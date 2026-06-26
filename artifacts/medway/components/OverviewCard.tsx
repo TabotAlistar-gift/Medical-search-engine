@@ -24,12 +24,13 @@ interface OverviewData {
   relatedQuestions: string[];
   isAIGenerated: boolean;
   disclaimer: string;
+  icd10?: string;
 }
 
 interface OverviewCardProps {
   query: string;
+  mode?: "patient" | "clinician";
   onRelatedQuestions?: (questions: string[]) => void;
-  onDiveDeeper?: () => void;
 }
 
 // Map common section headings to a colour accent
@@ -46,6 +47,12 @@ const sectionAccent: Record<string, string> = {
   Background:    "text-slate-600",
   Contributions: "text-cyan-600",
   Legacy:        "text-purple-600",
+  // Clinician sections
+  Pathophysiology: "text-indigo-600",
+  "Diagnostic Criteria": "text-violet-600",
+  "Pharmacotherapy Guideline": "text-teal-600",
+  "Prognosis & Complications": "text-rose-600",
+  "Clinical Presentation": "text-amber-600"
 };
 
 function getAccent(heading: string): string {
@@ -54,8 +61,8 @@ function getAccent(heading: string): string {
 
 export default function OverviewCard({
   query,
+  mode = "patient",
   onRelatedQuestions,
-  onDiveDeeper,
 }: OverviewCardProps) {
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,7 +75,8 @@ export default function OverviewCard({
     setError(false);
     setData(null);
 
-    fetch(`/mw/overview?q=${encodeURIComponent(query)}`)
+    const modeParam = mode ? `&mode=${mode}` : "";
+    fetch(`/mw/overview?q=${encodeURIComponent(query)}${modeParam}`)
       .then((r) => {
         if (!r.ok) throw new Error("Failed");
         return r.json();
@@ -84,7 +92,7 @@ export default function OverviewCard({
         setError(true);
         setLoading(false);
       });
-  }, [query]);
+  }, [query, mode]);
 
   if (error) return null;
 
@@ -102,6 +110,11 @@ export default function OverviewCard({
           {data?.isAIGenerated && (
             <span className="text-xs text-primary-600 bg-primary-100 px-2 py-0.5 rounded-full font-medium">
               AI
+            </span>
+          )}
+          {data?.icd10 && (
+            <span className="text-xs text-rose-700 bg-rose-50 border border-rose-100 px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wide">
+              ICD-10: {data.icd10}
             </span>
           )}
         </div>
@@ -181,16 +194,7 @@ export default function OverviewCard({
                 </div>
               ) : null}
 
-              {/* ── Dive Deeper button ── */}
-              {onDiveDeeper && (
-                <button
-                  onClick={onDiveDeeper}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-full transition-all duration-200 active:scale-95 mb-4"
-                >
-                  <Brain className="w-4 h-4" />
-                  Dive Deeper with MedAI
-                </button>
-              )}
+
 
               {/* ── Disclaimer ── */}
               <div className="flex items-start gap-2 text-xs text-slate-500 border-t border-blue-100 pt-3">

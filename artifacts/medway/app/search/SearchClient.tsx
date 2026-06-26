@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AiChatPanel from "@/components/AiChatPanel";
 import OverviewCard from "@/components/OverviewCard";
 import RelatedQuestions from "@/components/RelatedQuestions";
 import ResultsList from "@/components/ResultsList";
 import SymptomChecker from "@/components/SymptomChecker";
 import StudyHub from "@/components/StudyHub";
 import DiseaseCompare from "@/components/DiseaseCompare";
-import TimelineView from "@/components/TimelineView";
-import LearningPath from "@/components/LearningPath";
 import { exportMedicalReport } from "@/lib/reportExporter";
 import {
   Brain,
@@ -17,8 +14,6 @@ import {
   Activity,
   GraduationCap,
   GitCompare,
-  History,
-  Compass,
   FileText,
   AlertTriangle,
   Loader2,
@@ -32,11 +27,10 @@ interface SearchClientProps {
   searchData: SearchResponse;
 }
 
-type TabType = "all" | "symptoms" | "study" | "compare" | "timeline" | "journey";
+type TabType = "all" | "symptoms" | "study" | "compare";
 
 export default function SearchClient({ searchData }: SearchClientProps) {
   const { isLoggedIn } = useAuth();
-  const [chatOpen, setChatOpen] = useState(false);
   const [relatedQuestions, setRelatedQuestions] = useState<string[]>([]);
   const [savedUrls, setSavedUrls] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<TabType>("all");
@@ -47,10 +41,26 @@ export default function SearchClient({ searchData }: SearchClientProps) {
   const [includeCitations, setIncludeCitations] = useState(true);
   const [includeSymptoms, setIncludeSymptoms] = useState(false);
   const [includeStudy, setIncludeStudy] = useState(false);
-  const [includeTimeline, setIncludeTimeline] = useState(false);
+
   const [compilingStatus, setCompilingStatus] = useState<string | null>(null);
+  const [mode, setMode] = useState<"patient" | "clinician" | null>(null); // initialized to null to prevent SSR mismatch
 
   const { query, results } = searchData;
+
+  // Load selection from localStorage on client side mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("medway-user-mode");
+      setMode(saved === "clinician" ? "clinician" : "patient");
+    }
+  }, []);
+
+  function handleModeChange(newMode: "patient" | "clinician") {
+    setMode(newMode);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("medway-user-mode", newMode);
+    }
+  }
 
   // Auto-save search to history when user is logged in
   useEffect(() => {
@@ -170,20 +180,7 @@ export default function SearchClient({ searchData }: SearchClientProps) {
       );
     }
 
-    if (includeTimeline) {
-      setCompilingStatus("Compiling medical milestones...");
-      promises.push(
-        fetch(`/mw/timeline?q=${encodeURIComponent(query)}`)
-          .then((r) => {
-            if (!r.ok) throw new Error();
-            return r.json();
-          })
-          .then((d) => {
-            reportData.timeline = d;
-          })
-          .catch(() => {})
-      );
-    }
+
 
     try {
       await Promise.all(promises);
@@ -207,17 +204,12 @@ export default function SearchClient({ searchData }: SearchClientProps) {
     { id: "symptoms", label: "Symptom Analyzer", icon: Activity },
     { id: "study", label: "Study Hub", icon: GraduationCap },
     { id: "compare", label: "Compare", icon: GitCompare },
-    { id: "timeline", label: "Timeline", icon: History },
-    { id: "journey", label: "Health Journey", icon: Compass },
   ] as const;
 
   return (
     <div className="flex gap-0 min-h-screen relative">
       {/* Main content */}
-      <main
-        className="flex-1 min-w-0 transition-all duration-300 bg-slate-50/30"
-        style={{ maxWidth: chatOpen ? "calc(100% - 380px)" : "100%" }}
-      >
+      <main className="flex-1 min-w-0 bg-slate-50/30">
         {/* Navigation Tab Bar */}
         <div className="border-b border-slate-100 bg-white sticky top-[68px] z-30 shadow-sm px-4 sm:px-6">
           <div className="flex items-center justify-between overflow-x-auto gap-4 py-2">
@@ -242,19 +234,46 @@ export default function SearchClient({ searchData }: SearchClientProps) {
               })}
             </nav>
 
-            {/* Quick Actions (Report Download) */}
-            <button
-              onClick={handleDownloadClick}
-              disabled={downloading}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 shrink-0"
-            >
-              {downloading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <FileText className="w-3.5 h-3.5" />
+            {/* Mode Switcher & Download Report Actions */}
+            <div className="flex items-center gap-3 shrink-0 ml-auto">
+              {mode !== null && (
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                  <button
+                    onClick={() => handleModeChange("patient")}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 ${
+                      mode === "patient"
+                        ? "bg-white text-primary-700 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    👤 Patient
+                  </button>
+                  <button
+                    onClick={() => handleModeChange("clinician")}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 ${
+                      mode === "clinician"
+                        ? "bg-primary-700 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    🩺 Clinician
+                  </button>
+                </div>
               )}
-              Download Report
-            </button>
+
+              <button
+                onClick={handleDownloadClick}
+                disabled={downloading}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 shrink-0"
+              >
+                {downloading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileText className="w-3.5 h-3.5" />
+                )}
+                Download Report
+              </button>
+            </div>
           </div>
         </div>
 
@@ -292,11 +311,13 @@ export default function SearchClient({ searchData }: SearchClientProps) {
           {activeTab === "all" && (
             <div className="space-y-6">
               {/* AI Overview */}
-              <OverviewCard
-                query={query}
-                onRelatedQuestions={setRelatedQuestions}
-                onDiveDeeper={() => setChatOpen(true)}
-              />
+              {mode !== null && (
+                <OverviewCard
+                  query={query}
+                  mode={mode}
+                  onRelatedQuestions={setRelatedQuestions}
+                />
+              )}
 
               {/* People Also Ask */}
               {relatedQuestions.length > 0 && (
@@ -317,45 +338,18 @@ export default function SearchClient({ searchData }: SearchClientProps) {
                 />
               </div>
 
-              {/* Bottom Dive Deeper CTA */}
-              {!chatOpen && (
-                <div className="p-5 bg-gradient-to-r from-primary-50 to-teal-50 rounded-2xl border border-primary-100 flex items-center justify-between shadow-sm">
-                  <div>
-                    <p className="font-semibold text-primary-900 text-sm">Want more detail?</p>
-                    <p className="text-xs text-slate-600 mt-0.5">
-                      Ask MedAI follow-up questions about {query}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setChatOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary-700 hover:bg-primary-800 text-white text-sm font-medium rounded-full transition-all duration-200 active:scale-95 shrink-0 ml-4 shadow"
-                  >
-                    <Brain className="w-4 h-4" />
-                    Dive Deeper
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
-          {activeTab === "symptoms" && <SymptomChecker query={query} />}
+          {activeTab === "symptoms" && mode !== null && <SymptomChecker query={query} mode={mode} />}
 
           {activeTab === "study" && <StudyHub query={query} />}
 
           {activeTab === "compare" && <DiseaseCompare query={query} />}
 
-          {activeTab === "timeline" && <TimelineView query={query} />}
 
-          {activeTab === "journey" && <LearningPath query={query} />}
         </div>
       </main>
-
-      {/* AI Chat Panel */}
-      {chatOpen && (
-        <aside className="w-[380px] shrink-0 border-l border-slate-100 sticky top-0 h-screen overflow-hidden bg-white z-40">
-          <AiChatPanel query={query} onClose={() => setChatOpen(false)} />
-        </aside>
-      )}
 
       {/* Report Customization Modal */}
       {showExportModal && (
@@ -460,23 +454,7 @@ export default function SearchClient({ searchData }: SearchClientProps) {
                   </div>
                 </label>
 
-                {/* 5. Timeline */}
-                <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50/50 cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={includeTimeline}
-                    disabled={downloading}
-                    onChange={(e) => setIncludeTimeline(e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-slate-300 text-primary-700 focus:ring-primary-500 cursor-pointer"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-1.5 font-semibold text-xs uppercase tracking-wider text-slate-700">
-                      <History className="w-3.5 h-3.5 text-sky-500" />
-                      Medical Timeline
-                    </div>
-                    <p className="text-xs text-slate-400 mt-0.5">Historical milestones and treatment breakthroughs</p>
-                  </div>
-                </label>
+
               </div>
 
               {/* Status / Error Message */}
@@ -498,7 +476,7 @@ export default function SearchClient({ searchData }: SearchClientProps) {
                 </button>
                 <button
                   onClick={handleGenerateReport}
-                  disabled={downloading || (!includeOverview && !includeCitations && !includeSymptoms && !includeStudy && !includeTimeline)}
+                  disabled={downloading || (!includeOverview && !includeCitations && !includeSymptoms && !includeStudy)}
                   className="flex-1 py-2 bg-primary-700 hover:bg-primary-800 text-white rounded-xl text-xs font-semibold uppercase tracking-wider transition-all disabled:opacity-50 shadow flex items-center justify-center gap-1.5"
                 >
                   {downloading ? (

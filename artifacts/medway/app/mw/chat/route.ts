@@ -1,40 +1,9 @@
-import { NextRequest } from "next/server";
-import { streamChatResponse } from "@/lib/ai";
+import { NextResponse } from "next/server";
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { messages, query } = body as {
-    messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
-    query: string;
-  };
+export async function POST() {
+  return NextResponse.json({ error: "Chat feature is disabled" }, { status: 404 });
+}
 
-  if (!messages || !Array.isArray(messages)) {
-    return new Response("Invalid request", { status: 400 });
-  }
-
-  const encoder = new TextEncoder();
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of streamChatResponse(messages, query ?? "")) {
-          controller.enqueue(encoder.encode(chunk));
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Stream error";
-        controller.enqueue(encoder.encode(`\n\n[Error: ${msg}]`));
-      } finally {
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Transfer-Encoding": "chunked",
-      "Cache-Control": "no-cache",
-      "X-Accel-Buffering": "no",
-    },
-  });
+export async function GET() {
+  return NextResponse.json({ error: "Chat feature is disabled" }, { status: 404 });
 }

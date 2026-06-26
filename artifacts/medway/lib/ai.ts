@@ -23,13 +23,16 @@ export interface OverviewResponse {
   relatedQuestions: string[];
   isAIGenerated: boolean;
   disclaimer: string;
+  icd10?: string;
 }
 
 export async function generateOverview(
   query: string,
-  context: string
+  context: string,
+  mode?: "patient" | "clinician"
 ): Promise<OverviewResponse> {
   const groq = getGroq();
+  const isClinician = mode === "clinician";
 
   if (!groq) {
     // Fallback: extract the most relevant sentences from Wikipedia context
@@ -49,30 +52,52 @@ export async function generateOverview(
       keyFacts: [],
       relatedQuestions: [],
       isAIGenerated: false,
-      disclaimer:
-        "This information is for educational purposes only. Always consult a healthcare professional.",
+      disclaimer: isClinician
+        ? "Professional reference index."
+        : "This information is for educational purposes only. Always consult a healthcare professional.",
+      icd10: isClinician ? "ICD-10 Available Online" : undefined,
     };
   }
 
-  const prompt = `A user searched for: "${query}"
+  const prompt = isClinician
+    ? `A clinician/medical student searched for: "${query}"
+
+${context ? `Background information from trusted sources:\n${context}\n\n` : ""}
+
+Your task: Provide a highly technical, professional-grade clinical overview that directly answers the clinician's query.
+
+Rules:
+- Start with a direct pathophysiological definition (1-2 sentences), including the standard ICD-10 classification code(s) (e.g. E11.9 for Type 2 Diabetes) if applicable.
+- Then provide 2-4 structured professional sections (choose the most relevant from: "Pathophysiology", "Diagnostic Criteria", "Pharmacotherapy Guideline", "Prognosis & Complications", "Clinical Presentation").
+- Each section should have 3-5 concise, high-yield clinical bullet points with medical terminology (no simplification).
+- Be direct, objective, and professional.
+
+Respond ONLY with valid JSON:
+{
+  "intro": "Pathophysiological definition (30-60 words)",
+  "icd10": "ICD-10 classification code (e.g., E11.9) or 'N/A'",
+  "sections": [
+    { "heading": "Section Name", "points": ["point 1", "point 2", "point 3"] }
+  ],
+  "relatedQuestions": ["clinical question 1", "clinical question 2", "clinical question 3", "clinical question 4", "clinical question 5"]
+}`
+    : `A user searched for: "${query}"
 
 ${context ? `Background information from trusted sources:\n${context}\n\n` : ""}
 
 Your task: Provide a well-structured medical overview that directly answers the user's query.
 
 Rules:
-- Start with a short 1-2 sentence intro paragraph that directly defines or answers the query
-- Then provide 2-4 named sections with bullet points (choose the most relevant from: "Symptoms", "Causes", "Risk Factors", "Diagnosis", "Treatment", "Prevention", "Key Facts", "How It Works", "Who Is Affected")
-- Each section should have 3-5 concise bullet points
-- Adapt the sections to the query type: for a condition use Symptoms/Causes/Treatment; for a drug use How It Works/Uses/Side Effects; for a person use Background/Contributions/Legacy
-- Keep language clear for a general audience
-- Be direct — never start with "Great question" or repeat the query
+- Start with a short 1-2 sentence intro paragraph that directly defines or answers the query in patient-friendly terms.
+- Then provide 2-4 named sections with bullet points (choose the most relevant from: "Symptoms", "Causes", "Risk Factors", "Diagnosis", "Treatment", "Prevention", "Key Facts", "How It Works", "Who Is Affected").
+- Each section should have 3-5 concise bullet points.
+- Keep language clear and accessible for a general audience.
+- Be direct — never start with "Great question" or repeat the query.
 
 Respond ONLY with valid JSON:
 {
   "intro": "1-2 sentence direct answer or definition (30-60 words)",
   "sections": [
-    { "heading": "Section Name", "points": ["point 1", "point 2", "point 3"] },
     { "heading": "Section Name", "points": ["point 1", "point 2", "point 3"] }
   ],
   "relatedQuestions": ["follow-up question 1", "follow-up question 2", "follow-up question 3", "follow-up question 4", "follow-up question 5"]
@@ -84,12 +109,13 @@ Respond ONLY with valid JSON:
       messages: [
         {
           role: "system",
-          content:
-            "You are MedAI, a medical AI assistant embedded in MedWay — a trusted medical search engine. You ONLY answer questions related to medicine, health, anatomy, physiology, drugs, treatments, symptoms, diseases, mental health, nutrition, and related medical sciences. If the query is clearly not medical or health-related (e.g. sports, movies, politics, cooking, travel), respond ONLY with this JSON: {\"intro\": \"I can only help with medical and health topics. Please try a health-related question such as symptoms, diseases, treatments, or medications.\", \"sections\": [], \"relatedQuestions\": []}. Otherwise give specific, accurate medical answers. Respond only with valid JSON.",
+          content: isClinician
+            ? "You are a clinical database assistant. You provide precise, evidence-based clinical guides and medical overviews for physicians, medical residents, and medical students. Use professional medical vocabulary and format outputs strictly in valid JSON."
+            : "You are MedAI, a medical AI assistant embedded in MedWay, a trusted medical search engine. You ONLY answer questions related to medicine, health, anatomy, physiology, drugs, treatments, symptoms, diseases, mental health, nutrition, and related medical sciences. If the query is clearly not medical or health-related (e.g. sports, movies, politics, cooking, travel), respond ONLY with this JSON: {\"intro\": \"I can only help with medical and health topics. Please try a health-related question such as symptoms, diseases, treatments, or medications.\", \"sections\": [], \"relatedQuestions\": []}. Otherwise give specific, accurate medical answers. Respond only with valid JSON.",
         },
         { role: "user", content: prompt },
       ],
-      temperature: 0.3,
+      temperature: 0.2,
       max_tokens: 1200,
       response_format: { type: "json_object" },
     });
@@ -106,8 +132,10 @@ Respond ONLY with valid JSON:
         ? parsed.relatedQuestions
         : [],
       isAIGenerated: true,
-      disclaimer:
-        "AI-generated overview for educational purposes only. Not a substitute for professional medical advice.",
+      disclaimer: isClinician
+        ? "Professional clinical reference index. Verify active institutional guidelines."
+        : "AI-generated overview for educational purposes only. Not a substitute for professional medical advice.",
+      icd10: parsed.icd10 && parsed.icd10 !== "N/A" ? parsed.icd10 : undefined,
     };
   } catch (err) {
     console.error("Groq overview error:", err);
@@ -131,16 +159,25 @@ Respond ONLY with valid JSON:
 
 export async function* streamChatResponse(
   messages: Array<{ role: "user" | "assistant" | "system"; content: string }>,
-  query: string
+  query: string,
+  mode?: "patient" | "clinician"
 ): AsyncGenerator<string> {
   const groq = getGroq();
+  const isClinician = mode === "clinician";
 
   if (!groq) {
     yield "I'm sorry, the AI chat feature requires a Groq API key. Please set up your `GROQ_API_KEY` environment variable (free at console.groq.com) and restart the app.";
     return;
   }
 
-  const systemPrompt = `You are MedAI, an expert medical AI assistant embedded in MedWay — a trusted medical search engine.
+  const systemPrompt = isClinician
+    ? `You are MedAI, a highly specialized clinical AI consultant assisting a physician or medical student.
+IMPORTANT: Respond using professional medical jargon, diagnostic classifications, and clinical terminology.
+- Reference diagnostic criteria, pathophysiological mechanisms, standard therapeutics (including dosages, guidelines), and ICD-10 classification codes when relevant.
+- Do not simplify concepts. Talk to the user as a medical colleague.
+- Maintain evidence-based clinical reasoning.
+- Context: The user was searching for "${query}".`
+    : `You are MedAI, an expert medical AI assistant embedded in MedWay — a trusted medical search engine.
 
 IMPORTANT: You are EXCLUSIVELY a medical assistant. You ONLY answer questions about:
 - Diseases, conditions, and disorders
@@ -164,7 +201,6 @@ For all medical questions:
 - Always remind users to consult a healthcare professional for personal health concerns
 
 Context: The user was searching for "${query}".`;
-
 
   const stream = await groq.chat.completions.create({
     model: "llama-3.3-70b-versatile",
@@ -233,12 +269,32 @@ export async function getSuggestions(prefix: string): Promise<string[]> {
 export interface DiagnosticCondition {
   name: string;
   likelihood: "High" | "Moderate" | "Low";
+  confidenceScore: number;
   explanation: string;
+  severityAssessment: "Self-Care" | "Clinic Visit" | "Emergency";
+  riskFactors: string[];
+  icd10?: string;
+}
+
+export interface PrimarySpotlight {
+  condition: string;
+  likelihood: "High" | "Moderate" | "Low";
+  confidenceScore: number;
+  why: string;
+  recommendedNextSteps: string[];
+  icd10?: string;
 }
 
 export interface SymptomAnalysisResponse {
   intro: string;
+  primarySpotlight?: PrimarySpotlight;
   conditions: DiagnosticCondition[];
+  urgencyLevel: "Green" | "Yellow" | "Red";
+  redFlags: string[];
+  recommendedTests: string[];
+  firstAid: string[];
+  prevention: string[];
+  relatedDiseases: string[];
   warning: string;
 }
 
@@ -260,39 +316,89 @@ export interface InteractionResponse {
   interactions: Array<{ drugs: string[]; details: string; severity: "High" | "Moderate" | "None" }>;
 }
 
-export interface TimelineEvent {
-  year: string;
-  event: string;
-  detail: string;
-}
 
-export interface TimelineResponse {
-  title: string;
-  events: TimelineEvent[];
-}
 
-export interface LearningStep {
-  title: string;
-  description: string;
-  query: string;
-}
-
-export interface LearningPathResponse {
-  current: string;
-  steps: LearningStep[];
-}
-
-export async function analyzeSymptoms(symptoms: string): Promise<SymptomAnalysisResponse> {
+export async function analyzeSymptoms(
+  symptoms: string,
+  age?: string,
+  gender?: string,
+  duration?: string,
+  severity?: string,
+  mode?: "patient" | "clinician"
+): Promise<SymptomAnalysisResponse> {
   const groq = getGroq();
+  const isClinician = mode === "clinician";
+
   if (!groq) {
     return {
       intro: `Analysis of reported symptoms: "${symptoms}".`,
+      primarySpotlight: {
+        condition: "Common Cold",
+        likelihood: "High",
+        confidenceScore: 85,
+        why: "Your symptoms of runny nose, fatigue, and mild cough closely align with the clinical presentation of a respiratory viral infection.",
+        recommendedNextSteps: [
+          "Get plenty of rest and stay well-hydrated.",
+          "Consider over-the-counter supportive relief if appropriate.",
+          "Observe for secondary symptoms like a spike in high temperature."
+        ],
+        icd10: isClinician ? "J00" : undefined,
+      },
       conditions: [
-        { name: "Common Cold", likelihood: "High", explanation: "Frequently causes cough, runny nose, and fatigue." },
-        { name: "Influenza (Flu)", likelihood: "Moderate", explanation: "Characterized by sudden onset of high fever, body aches, and chills." },
-        { name: "Allergic Rhinitis", likelihood: "Low", explanation: "Can present with congestion and sneezing but fever is absent." }
+        {
+          name: "Common Cold",
+          likelihood: "High",
+          confidenceScore: 85,
+          explanation: "Frequently causes cough, runny nose, congestion, and mild fatigue.",
+          severityAssessment: "Self-Care",
+          riskFactors: ["Exposure to rhinovirus", "Seasonal weather changes", "Weakened immune status"],
+          icd10: isClinician ? "J00" : undefined,
+        },
+        {
+          name: "Influenza (Flu)",
+          likelihood: "Moderate",
+          confidenceScore: 60,
+          explanation: "Characterized by sudden onset of high fever, body aches, headaches, and chills.",
+          severityAssessment: "Clinic Visit",
+          riskFactors: ["Lack of seasonal flu vaccination", "Crowded environments", "Winter season"],
+          icd10: isClinician ? "J11.1" : undefined,
+        },
+        {
+          name: "Allergic Rhinitis",
+          likelihood: "Low",
+          confidenceScore: 30,
+          explanation: "Can present with congestion and sneezing, but fever and body aches are absent.",
+          severityAssessment: "Self-Care",
+          riskFactors: ["Exposure to pollen, dust, or pet dander", "Family history of allergies"],
+          icd10: isClinician ? "J30.9" : undefined,
+        }
       ],
-      warning: "This is a simplified estimation. Please consult a clinician if symptoms worsen."
+      urgencyLevel: "Green",
+      redFlags: [
+        "Difficulty breathing or short of breath",
+        "Persistent chest pain or pressure",
+        "Confusion or inability to wake or stay awake"
+      ],
+      recommendedTests: [
+        "Rapid Influenza Diagnostic Test (RIDT) if symptoms worsen",
+        "COVID-19 Antigen Test"
+      ],
+      firstAid: [
+        "Stay hydrated: drink water, warm teas, or broths.",
+        "Get extra rest to help your body recover.",
+        "Gargle with warm salt water for throat irritation."
+      ],
+      prevention: [
+        "Wash hands frequently with soap and water.",
+        "Avoid close contact with people who are sick.",
+        "Get your annual flu vaccine."
+      ],
+      relatedDiseases: [
+        "Sinusitis",
+        "Bronchitis",
+        "COVID-19"
+      ],
+      warning: "This symptom assessment is for educational purposes only. We advise you to consult local healthcare professionals in your area for any personal health concerns or if symptoms persist."
     };
   }
 
@@ -302,22 +408,57 @@ export async function analyzeSymptoms(symptoms: string): Promise<SymptomAnalysis
       messages: [
         {
           role: "system",
-          content: "You are a clinical symptom analyzer. Analyze symptoms and return possible differential diagnoses in JSON format. Do not diagnose directly, use terms like 'likelihood'."
+          content: isClinician
+            ? `You are a clinical diagnostics AI assistant. Analyze the symptoms, demographics, and clinical context, then return a detailed differential diagnosis and triage plan in JSON format.
+For each matching condition (including the primary spotlight), you MUST search and return the standard clinical ICD-10 classification code (e.g. J00, E11.9).
+In the "warning" field, always advise to consult a local primary care practitioner or clinic in their area.`
+            : `You are a clinical symptom triage assistant. Analyze the symptoms, demographics, and clinical context, then return a detailed differential diagnosis and triage plan in JSON format.
+CRITICAL SAFETY RULES:
+- Do not make a definitive diagnosis (e.g. do not say "You have X"). Use probabilistic language (e.g. "Typical presentation of X").
+- If there are emergency symptoms (e.g. chest pain, severe shortness of breath, sudden severe weakness, confusion, severe abdominal pain), classify urgencyLevel as "Red", and detail key life-saving steps.
+- In the "warning" field, always advise the user to seek professional clinical advice from healthcare professionals or clinics in their local area. Do not cite web pages or provide online links.`
         },
         {
           role: "user",
-          content: `Analyze these symptoms: "${symptoms}". Return ONLY JSON:
+          content: `Analyze these reported symptoms and demographic factors:
+- Primary Symptoms: "${symptoms}"
+- Patient Age: ${age || "Not specified"}
+- Patient Gender: ${gender || "Not specified"}
+- Duration of Symptoms: ${duration || "Not specified"}
+- Subjective Severity: ${severity || "Not specified"}
+
+Return ONLY a valid JSON object matching the following structure:
 {
-  "intro": "Brief introductory context analyzing the symptom group.",
+  "intro": "A professional clinical overview of the symptom pattern in 2-3 sentences.",
+  "primarySpotlight": {
+    "condition": "Name of the most likely condition",
+    "likelihood": "High|Moderate|Low",
+    "confidenceScore": 85,
+    "why": "A short 1-2 sentence explanation of why this matches the symptoms best.",
+    "recommendedNextSteps": ["Step 1", "Step 2", "Step 3"]${isClinician ? ',\n    "icd10": "ICD-10 classification code (e.g. J00) or \'N/A\'"' : ''}
+  },
   "conditions": [
-    { "name": "Condition Name", "likelihood": "High|Moderate|Low", "explanation": "Why this condition is a match." }
+    {
+      "name": "Condition name",
+      "likelihood": "High|Moderate|Low",
+      "confidenceScore": 80,
+      "explanation": "Brief explanation of how the symptoms align with this condition.",
+      "severityAssessment": "Self-Care|Clinic Visit|Emergency",
+      "riskFactors": ["Factor 1", "Factor 2"]${isClinician ? ',\n      "icd10": "ICD-10 classification code (e.g. J00) or \'N/A\'"' : ''}
+    }
   ],
-  "warning": "Standard clinical warning or recommendation."
+  "urgencyLevel": "Green|Yellow|Red",
+  "redFlags": ["Red flag warning 1", "Red flag warning 2"],
+  "recommendedTests": ["Test 1", "Test 2"],
+  "firstAid": ["Self-care advice 1", "Self-care advice 2"],
+  "prevention": ["Prevention tip 1", "Prevention tip 2"],
+  "relatedDiseases": ["Disease 1", "Disease 2"],
+  "warning": "Advice to consult local medical doctor or healthcare professional in their local area."
 }`
         }
       ],
       temperature: 0.2,
-      max_tokens: 800,
+      max_tokens: 1200,
       response_format: { type: "json_object" }
     });
 
@@ -328,7 +469,13 @@ export async function analyzeSymptoms(symptoms: string): Promise<SymptomAnalysis
     return {
       intro: "Failed to perform AI analysis.",
       conditions: [],
-      warning: "Error connecting to AI service."
+      urgencyLevel: "Green",
+      redFlags: [],
+      recommendedTests: [],
+      firstAid: [],
+      prevention: [],
+      relatedDiseases: [],
+      warning: "Error connecting to AI service. Please consult a local healthcare professional."
     };
   }
 }
@@ -618,121 +765,7 @@ export async function checkDrugInteractions(drugs: string[]): Promise<Interactio
   }
 }
 
-export async function generateTimeline(topic: string): Promise<TimelineResponse> {
-  const groq = getGroq();
-  if (!groq) {
-    return {
-      title: `${topic} Historical Milestones`,
-      events: [
-        { year: "Antiquity", event: "Early documentation", detail: "Early references of symptom clusters found in ancient medical treatises." },
-        { year: "Modern Era", event: "Modern diagnosis", detail: "Detailed classification established by pathologists." }
-      ]
-    };
-  }
 
-  try {
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content: "You are a medical historian. Create a timeline of historical milestones for a disease, medical topic, or drug in JSON format."
-        },
-        {
-          role: "user",
-          content: `Create a timeline of key milestones for: "${topic}". Include 4-5 events. Return ONLY JSON:
-{
-  "title": "Timeline Title",
-  "events": [
-    { "year": "Year string", "event": "Brief event title", "detail": "Short description of what happened." }
-  ]
-}`
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 800,
-      response_format: { type: "json_object" }
-    });
-
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw);
-    if (!parsed.events || !Array.isArray(parsed.events) || parsed.events.length === 0) {
-      throw new Error("Invalid or empty events in timeline response");
-    }
-    return {
-      title: parsed.title || `${topic} Historical Milestones`,
-      events: parsed.events
-    };
-  } catch (err) {
-    console.error("generateTimeline error:", err);
-    return {
-      title: `${topic} Historical Milestones`,
-      events: [
-        { year: "Antiquity", event: "Early documentation", detail: "Early references of symptom clusters found in ancient medical treatises." },
-        { year: "Modern Era", event: "Modern diagnosis", detail: "Detailed classification established by pathologists." }
-      ]
-    };
-  }
-}
-
-export async function generateLearningPath(topic: string): Promise<LearningPathResponse> {
-  const groq = getGroq();
-  if (!groq) {
-    return {
-      current: topic,
-      steps: [
-        { title: `Introduction to ${topic}`, description: `Understand the basics and primary definitions of ${topic}.`, query: `${topic} overview` },
-        { title: `Pathophysiology of ${topic}`, description: `Learn about biological mechanisms and causes.`, query: `${topic} causes` },
-        { title: `Clinical Management`, description: `Explore current standard diagnostic methods and treatments.`, query: `${topic} treatment` }
-      ]
-    };
-  }
-
-  try {
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content: "You are a medical educator. Design a sequential learning path of 3-4 steps that guides a student from beginner to advanced on a health topic, outputting JSON."
-        },
-        {
-          role: "user",
-          content: `Create a learning path for: "${topic}". Return ONLY JSON:
-{
-  "current": "${topic}",
-  "steps": [
-    { "title": "Step title", "description": "What they will learn.", "query": "Search query they should run for this step" }
-  ]
-}`
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 800,
-      response_format: { type: "json_object" }
-    });
-
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw);
-    if (!parsed.steps || !Array.isArray(parsed.steps) || parsed.steps.length === 0) {
-      throw new Error("Invalid or empty steps in learning path response");
-    }
-    return {
-      current: parsed.current || topic,
-      steps: parsed.steps
-    };
-  } catch (err) {
-    console.error("generateLearningPath error:", err);
-    return {
-      current: topic,
-      steps: [
-        { title: `Introduction to ${topic}`, description: `Understand the basics and primary definitions of ${topic}.`, query: `${topic} overview` },
-        { title: `Pathophysiology of ${topic}`, description: `Learn about biological mechanisms and causes.`, query: `${topic} causes` },
-        { title: `Clinical Management`, description: `Explore current standard diagnostic methods and treatments.`, query: `${topic} treatment` }
-      ]
-    };
-  }
-}
 
 export interface StudyNotesResponse {
   title: string;
