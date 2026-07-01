@@ -15,7 +15,6 @@ import {
   GraduationCap,
   GitCompare,
   FileText,
-  AlertTriangle,
   Loader2,
   X,
 } from "lucide-react";
@@ -34,7 +33,7 @@ export default function SearchClient({ searchData }: SearchClientProps) {
   const [relatedQuestions, setRelatedQuestions] = useState<string[]>([]);
   const [savedUrls, setSavedUrls] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<TabType>("all");
-  const [interactionData, setInteractionData] = useState<any | null>(null);
+
   const [downloading, setDownloading] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [includeOverview, setIncludeOverview] = useState(true);
@@ -47,18 +46,28 @@ export default function SearchClient({ searchData }: SearchClientProps) {
 
   const { query, results } = searchData;
 
-  // Load selection from localStorage on client side mount
+  // Load selection from localStorage on client side mount & sync custom events
   useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("medway-user-mode");
       setMode(saved === "clinician" ? "clinician" : "patient");
     }
+
+    const handleSyncMode = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setMode(customEvent.detail);
+      }
+    };
+    window.addEventListener("medway-mode-change", handleSyncMode);
+    return () => window.removeEventListener("medway-mode-change", handleSyncMode);
   }, []);
 
   function handleModeChange(newMode: "patient" | "clinician") {
     setMode(newMode);
     if (typeof window !== "undefined") {
       localStorage.setItem("medway-user-mode", newMode);
+      window.dispatchEvent(new CustomEvent("medway-mode-change", { detail: newMode }));
     }
   }
 
@@ -79,25 +88,7 @@ export default function SearchClient({ searchData }: SearchClientProps) {
     }
   }, [isLoggedIn, results]);
 
-  // Check for potential drug interactions automatically on search
-  useEffect(() => {
-    if (!query) return;
-    const parts = query.split(/\s+(?:and|or|vs|,)\s+|\s+/i).filter((p) => p.length > 2);
-    if (parts.length >= 2) {
-      fetch(`/mw/interaction?q=${encodeURIComponent(query)}`)
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.severity && d.severity !== "None") {
-            setInteractionData(d);
-          } else {
-            setInteractionData(null);
-          }
-        })
-        .catch(() => setInteractionData(null));
-    } else {
-      setInteractionData(null);
-    }
-  }, [query]);
+
 
   function handleToggleSave(result: SearchResult) {
     if (!isLoggedIn) return;
@@ -128,6 +119,56 @@ export default function SearchClient({ searchData }: SearchClientProps) {
     setDownloading(true);
     setCompilingStatus("Initializing compilation...");
     
+    // Open the print window immediately to bypass the browser popup blocker
+    let printWindow: Window | null = null;
+    if (typeof window !== "undefined") {
+      printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Generating Report...</title>
+              <style>
+                body {
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  height: 100vh;
+                  margin: 0;
+                  color: #334155;
+                  background-color: #f8fafc;
+                }
+                .spinner {
+                  border: 4px solid #e2e8f0;
+                  border-top: 4px solid #0d9488;
+                  border-radius: 50%;
+                  width: 40px;
+                  height: 40px;
+                  animation: spin 1s linear infinite;
+                  margin-bottom: 20px;
+                }
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+                h2 { margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: #0f172a; }
+                p { margin: 0; font-size: 14px; color: #64748b; }
+              </style>
+            </head>
+            <body>
+              <div class="spinner"></div>
+              <h2>Compiling Medical Report</h2>
+              <p>Fetching clinical data and preparing your PDF. Please wait...</p>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+      }
+    }
+
     const reportData: any = {};
     const promises: Promise<any>[] = [];
 
@@ -185,13 +226,13 @@ export default function SearchClient({ searchData }: SearchClientProps) {
     try {
       await Promise.all(promises);
       setCompilingStatus("Generating document...");
-      exportMedicalReport(query, reportData);
+      exportMedicalReport(query, reportData, printWindow);
     } catch (err) {
       console.error(err);
       exportMedicalReport(query, {
         overview: includeOverview ? { intro: `Research report compiled for ${query}.`, sections: [] } : undefined,
         citations: includeCitations ? results : undefined
-      });
+      }, printWindow);
     } finally {
       setDownloading(false);
       setCompilingStatus(null);
@@ -212,8 +253,8 @@ export default function SearchClient({ searchData }: SearchClientProps) {
       <main className="flex-1 min-w-0 bg-slate-50/30">
         {/* Navigation Tab Bar */}
         <div className="border-b border-slate-100 bg-white sticky top-[68px] z-30 shadow-sm px-4 sm:px-6">
-          <div className="flex items-center justify-between overflow-x-auto gap-4 py-2">
-            <nav className="flex gap-1">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 py-2">
+            <nav className="flex gap-1 overflow-x-auto no-scrollbar pb-1 md:pb-0 w-full md:w-auto">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const active = activeTab === tab.id;
@@ -235,9 +276,9 @@ export default function SearchClient({ searchData }: SearchClientProps) {
             </nav>
 
             {/* Mode Switcher & Download Report Actions */}
-            <div className="flex items-center gap-3 shrink-0 ml-auto">
+            <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 w-full md:w-auto">
               {mode !== null && (
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                <div className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
                   <button
                     onClick={() => handleModeChange("patient")}
                     className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 ${
@@ -278,34 +319,7 @@ export default function SearchClient({ searchData }: SearchClientProps) {
         </div>
 
         <div className="max-w-4xl px-4 sm:px-6 py-6 space-y-6">
-          {/* Dynamic Drug Interaction Warning */}
-          {activeTab === "all" && interactionData && (
-            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5 flex items-start gap-4 animate-fade-in shadow-sm">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div className="space-y-1.5 flex-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-bold text-rose-900 text-sm leading-none uppercase tracking-wide">
-                    Critical Interaction Warning
-                  </h4>
-                  <span className="bg-rose-600 text-white font-semibold text-[10px] px-2 py-0.5 rounded-full uppercase">
-                    {interactionData.severity} Severity
-                  </span>
-                </div>
-                <p className="text-xs text-rose-800 leading-relaxed font-light">
-                  {interactionData.summary}
-                </p>
-                <div className="pt-2 flex flex-wrap gap-2">
-                  {interactionData.interactions.map((inter: any, idx: number) => (
-                    <div key={idx} className="bg-white/60 text-rose-950 p-2 rounded-lg text-xs font-semibold">
-                      {inter.drugs.join(" + ")}: {inter.details}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+
 
           {/* Tab Content Router */}
           {activeTab === "all" && (

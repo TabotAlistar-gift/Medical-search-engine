@@ -223,4 +223,50 @@ export function saveQuizScore(topic: string, correct: number, total: number): vo
   writeJSON(key, updated);
 }
 
+// ── Generated Reports ─────────────────────────────────────────────────────────
+
+function reportsKey(userId: string): string {
+  return `medway_reports_${userId}`;
+}
+
+export function saveGeneratedReport(query: string, data: any): void {
+  const uid = currentUserId();
+  if (!uid) return;
+
+  const key = reportsKey(uid);
+  const reports = readJSON<any[]>(key, []);
+
+  // Remove existing report of the same query to keep list neat, then prepend
+  const filtered = reports.filter((r) => r.query.toLowerCase() !== query.toLowerCase());
+
+  const updated = [
+    {
+      id: `${query.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}`,
+      query,
+      data,
+      timestamp: new Date().toISOString(),
+    },
+    ...filtered,
+  ];
+  writeJSON(key, updated);
+}
+
+export function getGeneratedReports(): any[] {
+  const uid = currentUserId();
+  if (!uid) return [];
+  return readJSON<any[]>(reportsKey(uid), []);
+}
+
+export function deleteGeneratedReport(id: string): void {
+  const uid = currentUserId();
+  if (!uid) return;
+
+  const key = reportsKey(uid);
+  const reports = readJSON<any[]>(key, []);
+  writeJSON(
+    key,
+    reports.filter((r) => r.id !== id)
+  );
+}
+
 

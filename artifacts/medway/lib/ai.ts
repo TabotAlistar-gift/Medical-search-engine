@@ -310,11 +310,7 @@ export interface ComparisonResponse {
   rows: Array<{ feature: string; c1Value: string; c2Value: string }>;
 }
 
-export interface InteractionResponse {
-  severity: "High" | "Moderate" | "None";
-  summary: string;
-  interactions: Array<{ drugs: string[]; details: string; severity: "High" | "Moderate" | "None" }>;
-}
+
 
 
 
@@ -710,60 +706,7 @@ export async function compareConditions(c1: string, c2: string): Promise<Compari
   }
 }
 
-export async function checkDrugInteractions(drugs: string[]): Promise<InteractionResponse> {
-  const groq = getGroq();
-  if (!groq) {
-    const lower = drugs.map(d => d.toLowerCase());
-    const isWarfarin = lower.some(l => l.includes("warfarin"));
-    const isAspirin = lower.some(l => l.includes("aspirin") || l.includes("ibuprofen") || l.includes("advil") || l.includes("aleve"));
-    if (isWarfarin && isAspirin) {
-      return {
-        severity: "High",
-        summary: "High risk of bleeding. Concomitant use of anticoagulants (Warfarin) and NSAIDs/antiplatelets (Aspirin) synergistically increases risk of major gastrointestinal hemorrhage.",
-        interactions: [
-          { drugs: ["Warfarin", "Aspirin"], details: "Increases bleeding risk via pharmacodynamic synergy.", severity: "High" }
-        ]
-      };
-    }
-    return {
-      severity: "None",
-      summary: "No common contraindications detected in offline mock database. Always check with a pharmacist.",
-      interactions: []
-    };
-  }
 
-  try {
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content: "You are a clinical pharmacologist. Check a list of drugs for drug-drug interactions and return warnings in JSON format."
-        },
-        {
-          role: "user",
-          content: `Evaluate interactions for these drugs: ${drugs.join(", ")}. Return ONLY JSON:
-{
-  "severity": "High|Moderate|None",
-  "summary": "Overall summary of risks and mechanism.",
-  "interactions": [
-    { "drugs": ["Drug 1", "Drug 2"], "details": "Pharmacodynamic/pharmacokinetic interaction explanation", "severity": "High|Moderate|None" }
-  ]
-}`
-        }
-      ],
-      temperature: 0.1,
-      max_tokens: 800,
-      response_format: { type: "json_object" }
-    });
-
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error("checkDrugInteractions error:", err);
-    return { severity: "None", summary: "Failed to perform AI analysis.", interactions: [] };
-  }
-}
 
 
 
