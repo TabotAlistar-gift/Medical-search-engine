@@ -4,6 +4,8 @@
  */
 
 import type { SearchResult } from "./search";
+import { getSession } from "./auth";
+import { saveGeneratedReport } from "./userStore";
 
 function formatTitle(q: string): string {
   if (!q) return "";
@@ -47,15 +49,28 @@ export interface ReportExportData {
 
 export function exportMedicalReport(
   query: string,
-  data: ReportExportData
+  data: ReportExportData,
+  incomingWindow?: Window | null
 ): void {
   if (typeof window === "undefined") return;
 
-  const printWindow = window.open("", "_blank");
+  // Auto-save generated report to history if user is logged in
+  try {
+    const session = getSession();
+    if (session?.id) {
+      saveGeneratedReport(query, data);
+    }
+  } catch (err) {
+    console.error("Failed to auto-save generated report:", err);
+  }
+
+  const printWindow = incomingWindow || window.open("", "_blank");
   if (!printWindow) {
     alert("Please allow popups to download reports.");
     return;
   }
+
+  if (printWindow.closed) return;
 
   const displayTitle = formatTitle(query);
 
@@ -259,9 +274,80 @@ export function exportMedicalReport(
               border: 1px solid #ccc;
             }
           }
+          .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-15deg);
+            width: 450px;
+            height: 450px;
+            opacity: 0.04;
+            pointer-events: none;
+            z-index: -1000;
+          }
         </style>
       </head>
       <body>
+        <div class="watermark">
+          <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+            <defs>
+              <linearGradient id="logo-cross-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#0066cc" />
+                <stop offset="100%" stop-color="#00a896" />
+              </linearGradient>
+            </defs>
+            <!-- Outer swoosh arc -->
+            <path
+              d="M 145 42 A 74 74 0 1 0 110 178"
+              stroke="url(#logo-cross-grad)"
+              stroke-width="8"
+              stroke-linecap="round"
+              fill="none"
+            />
+            <!-- Rounded medical cross -->
+            <path
+              d="M 75 45 C 75 39 80 34 86 34 H 114 C 120 34 125 39 125 45 V 75 H 155 C 161 75 166 80 166 86 V 114 C 166 120 161 125 155 125 H 125 V 155 C 125 161 120 166 114 166 H 86 C 80 166 75 161 75 155 V 125 H 45 C 39 125 34 120 34 114 V 86 C 34 80 39 75 45 75 H 75 Z"
+              fill="url(#logo-cross-grad)"
+            />
+            <!-- Left ear tube -->
+            <path
+              d="M 91 62 C 91 74 96 84 100 84"
+              stroke="white"
+              stroke-width="4.5"
+              stroke-linecap="round"
+              fill="none"
+            />
+            <!-- Right ear tube -->
+            <path
+              d="M 109 62 C 109 74 104 84 100 84"
+              stroke="white"
+              stroke-width="4.5"
+              stroke-linecap="round"
+              fill="none"
+            />
+            <!-- Ear tips -->
+            <circle cx="91" cy="62" r="4.5" fill="white" />
+            <circle cx="109" cy="62" r="4.5" fill="white" />
+            <!-- Stethoscope tube swooping down, out, and to the right -->
+            <path
+              d="M 100 84 V 102 C 100 124 114 138 130 138 C 146 138 155 124 155 106"
+              stroke="white"
+              stroke-width="4.5"
+              stroke-linecap="round"
+              fill="none"
+            />
+            <!-- Stethoscope chestpiece -->
+            <circle
+              cx="155"
+              cy="106"
+              r="13"
+              fill="#00a896"
+              stroke="white"
+              stroke-width="3.5"
+            />
+            <circle cx="155" cy="106" r="3.5" fill="white" />
+          </svg>
+        </div>
         <header>
           <div class="title-group">
             <h1>${displayTitle}</h1>

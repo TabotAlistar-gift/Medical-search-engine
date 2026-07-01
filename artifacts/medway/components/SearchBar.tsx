@@ -111,7 +111,7 @@ export default function SearchBar({
       >
         <Search
           className={cn(
-            "absolute left-4 text-slate-400 group-focus-within:text-primary-600 transition-colors",
+            "absolute left-4 text-slate-400 group-focus-within:text-primary-600 transition-colors hidden sm:block",
             isLarge ? "w-5 h-5 left-5" : "w-4 h-4"
           )}
         />
@@ -124,10 +124,10 @@ export default function SearchBar({
           onFocus={() => {
             if (suggestions.length > 0) setShowSuggestions(true);
           }}
-          placeholder="Search medical topics, symptoms, conditions…"
+          placeholder="Search medical topics…"
           className={cn(
-            "flex-1 bg-transparent outline-none text-slate-800 placeholder-slate-400",
-            isLarge ? "py-4 pl-14 pr-4 text-lg" : "py-3 pl-11 pr-4 text-base"
+            "flex-1 min-w-0 w-full bg-transparent outline-none text-slate-800 placeholder-slate-400",
+            isLarge ? "py-4 pl-4 sm:pl-14 pr-4 text-lg" : "py-3 pl-4 sm:pl-11 pr-4 text-base"
           )}
           aria-label="Medical search"
           aria-expanded={showSuggestions}
@@ -149,10 +149,12 @@ export default function SearchBar({
           onClick={() => doSearch(query)}
           disabled={isLoading}
           className={cn(
-            "flex items-center gap-2 mr-2 px-5 py-2 rounded-full font-semibold text-white transition-all duration-200",
+            "flex items-center justify-center gap-2 mr-2 rounded-full font-semibold text-white transition-all duration-200 shrink-0",
             "bg-primary-700 hover:bg-primary-800 active:scale-95",
             "disabled:opacity-70 disabled:cursor-not-allowed",
-            isLarge ? "text-base px-6 py-2.5" : "text-sm"
+            isLarge 
+              ? "text-base px-4 sm:px-6 py-2.5 h-12 w-12 sm:w-auto" 
+              : "text-sm px-2 sm:px-5 py-2 h-8 w-8 sm:w-auto"
           )}
         >
           {isLoading ? (
@@ -162,7 +164,10 @@ export default function SearchBar({
               <span className="typing-dot" />
             </span>
           ) : (
-            "Search"
+            <>
+              <Search className="w-4 h-4 sm:hidden block shrink-0" />
+              <span className="hidden sm:block">Search</span>
+            </>
           )}
         </button>
       </div>

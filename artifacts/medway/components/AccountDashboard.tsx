@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, History, Bookmark, Search, Trash2, ExternalLink, Clock } from "lucide-react";
+import { X, History, Bookmark, Search, Trash2, ExternalLink, Clock, FileText, Printer } from "lucide-react";
 import Link from "next/link";
 import {
   getSearchHistory,
@@ -12,12 +12,15 @@ import {
   createFolder,
   deleteFolder,
   saveArticleToFolder,
+  getGeneratedReports,
+  deleteGeneratedReport,
   type SearchHistoryItem,
   type SavedArticle,
 } from "@/lib/userStore";
 import { useAuth } from "@/context/AuthContext";
+import { exportMedicalReport } from "@/lib/reportExporter";
 
-type Tab = "history" | "saved";
+type Tab = "history" | "saved" | "reports";
 
 interface AccountDashboardProps {
   defaultTab?: Tab;
@@ -45,6 +48,7 @@ export default function AccountDashboard({
   const [tab, setTab] = useState<Tab>(defaultTab);
   const [history, setHistory] = useState<SearchHistoryItem[]>([]);
   const [saved, setSaved] = useState<SavedArticle[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string>("All");
   const [newFolderInput, setNewFolderInput] = useState("");
@@ -54,8 +58,42 @@ export default function AccountDashboard({
   useEffect(() => {
     setHistory(getSearchHistory());
     setSaved(getSavedArticles());
+    setReports(getGeneratedReports());
     setFolders(getFolders());
   }, []);
+
+  function handleDeleteReport(id: string) {
+    deleteGeneratedReport(id);
+    setReports((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  function handleDownloadReport(report: any) {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Popup blocker active. Please allow popups for MedWay.");
+      return;
+    }
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Generating Report...</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f8fafc; }
+            .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #0f766e; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin-bottom: 12px; }
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            h1 { font-size: 14px; color: #1e293b; margin: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="spinner"></div>
+          <h1>Preparing Clinical PDF Report...</h1>
+        </body>
+      </html>
+    `);
+    
+    exportMedicalReport(report.query, report.data, printWindow);
+  }
 
   function handleClearHistory() {
     clearHistory();
@@ -144,6 +182,17 @@ export default function AccountDashboard({
           >
             <Bookmark className="w-3.5 h-3.5" />
             Saved Topics
+          </button>
+          <button
+            onClick={() => setTab("reports")}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 ${
+              tab === "reports"
+                ? "text-primary-700 border-primary-600 bg-white"
+                : "text-slate-500 border-transparent hover:text-slate-700"
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Reports
           </button>
         </div>
 
@@ -346,6 +395,65 @@ export default function AccountDashboard({
                   </ul>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ── Generated Reports ── */}
+          {tab === "reports" && (
+            <div className="p-4 space-y-4">
+              {reports.length === 0 ? (
+                <div className="text-center py-16 text-slate-400">
+                  <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm font-medium">No generated reports</p>
+                  <p className="text-xs mt-1">Reports you compile and download will be saved here.</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    {reports.length} generated reports
+                  </p>
+                  <ul className="space-y-3">
+                    {reports.map((report, i) => (
+                      <li
+                        key={report.id || i}
+                        className="rounded-2xl border border-slate-200/70 p-4 hover:border-primary-100 hover:bg-primary-50/10 transition-all group relative space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <span className="inline-block text-[10px] font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded border border-primary-100 mb-1">
+                              Clinical PDF Report
+                            </span>
+                            <h5 className="text-sm font-bold text-slate-800 leading-snug truncate">
+                              {report.query}
+                            </h5>
+                            <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
+                              <Clock className="w-3 h-3" />
+                              <span>{timeAgo(report.timestamp)}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-1 shrink-0">
+                            <button
+                              onClick={() => handleDownloadReport(report)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-primary-600 hover:bg-white border border-slate-100 shadow-sm transition-colors"
+                              title="Download/Print PDF"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteReport(report.id)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 border border-slate-100 shadow-sm transition-colors"
+                              title="Delete report history"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
           )}
         </div>

@@ -48,15 +48,29 @@ export default async function SearchPage({ searchParams }: Props) {
       <div className="min-h-screen bg-surface flex flex-col">
         {/* Reuse the same sticky header */}
         <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3 px-4 sm:px-6 py-3">
-            <Link href="/" className="flex items-center gap-2 shrink-0">
-              <Logo size={24} />
-              <span className="font-bold text-primary-900 text-base tracking-tight hidden sm:block">
-                MedWay
-              </span>
-            </Link>
+          <div className="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-6 py-3">
+            {/* Left side: Back Button on mobile, Logo on desktop */}
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href="/"
+                className="sm:hidden p-1.5 text-slate-500 hover:text-primary-700 transition-colors"
+                aria-label="Back"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <Link href="/" className="hidden sm:flex items-center gap-2 group">
+                <Logo size={24} />
+                <span className="font-bold text-primary-900 text-base tracking-tight">
+                  MedWay
+                </span>
+              </Link>
+            </div>
             <div className="flex-1 max-w-3xl">
               <SearchBar initialQuery={query} />
+            </div>
+            {/* Right side actions */}
+            <div className="flex items-center shrink-0">
+              <AccountButton />
             </div>
           </div>
         </header>
@@ -108,14 +122,23 @@ export default async function SearchPage({ searchParams }: Props) {
     <div className="min-h-screen bg-surface flex flex-col">
       {/* Top header */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm">
-        <div className="flex items-center gap-3 px-4 sm:px-6 py-3">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 shrink-0 group">
-            <Logo size={24} />
-            <span className="font-bold text-primary-900 text-base tracking-tight hidden sm:block">
-              MedWay
-            </span>
-          </Link>
+        <div className="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-6 py-3">
+          {/* Left side: Back Button on mobile, Logo on desktop */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/"
+              className="sm:hidden p-1.5 text-slate-500 hover:text-primary-700 transition-colors"
+              aria-label="Back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <Link href="/" className="hidden sm:flex items-center gap-2 group">
+              <Logo size={24} />
+              <span className="font-bold text-primary-900 text-base tracking-tight">
+                MedWay
+              </span>
+            </Link>
+          </div>
 
           {/* Search bar */}
           <div className="flex-1 max-w-3xl">
@@ -123,15 +146,8 @@ export default async function SearchPage({ searchParams }: Props) {
           </div>
 
           {/* Right side actions */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center shrink-0">
             <AccountButton />
-            <Link
-              href="/"
-              className="sm:hidden p-2 text-slate-500 hover:text-primary-700 transition-colors"
-              aria-label="Back"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
           </div>
         </div>
       </header>
