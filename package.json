@@ -10,6 +10,18 @@
     "typecheck": "pnpm -r --filter \"@workspace/medway\" run typecheck"
   },
   "private": true,
+  "pnpm": {
+    "supportedArchitectures": {
+      "os": [
+        "current",
+        "linux"
+      ],
+      "cpu": [
+        "current",
+        "x64"
+      ]
+    }
+  },
   "devDependencies": {
     "@types/node": "catalog:",
     "prettier": "^3.8.3",
