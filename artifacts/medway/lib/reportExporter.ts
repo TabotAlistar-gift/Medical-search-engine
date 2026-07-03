@@ -84,6 +84,7 @@ export function exportMedicalReport(
     ? Array.from(new Set(data.citations.map((r) => r.sourceLabel))).join(", ")
     : "AI Medical Database";
 
+  printWindow.document.open();
   printWindow.document.write(`
     <!DOCTYPE html>
     <html>
@@ -584,12 +585,21 @@ export function exportMedicalReport(
         </footer>
 
         <script>
-          window.onload = function() {
-            window.print();
-            window.onafterprint = function() {
-              window.close();
-            };
-          };
+          (function() {
+            function triggerPrint() {
+              window.print();
+              window.onafterprint = function() {
+                window.close();
+              };
+            }
+            if (document.readyState === "complete") {
+              setTimeout(triggerPrint, 250);
+            } else {
+              window.addEventListener("load", function() {
+                setTimeout(triggerPrint, 250);
+              });
+            }
+          })();
         </script>
       </body>
     </html>

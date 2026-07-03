@@ -276,7 +276,7 @@ export default function SearchClient({ searchData }: SearchClientProps) {
             </nav>
 
             {/* Mode Switcher & Download Report Actions */}
-            <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 w-full md:w-auto">
+            <div className="flex items-center justify-end gap-3 shrink-0 w-full md:w-auto">
               {mode !== null && (
                 <div className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
                   <button
@@ -305,12 +305,12 @@ export default function SearchClient({ searchData }: SearchClientProps) {
               <button
                 onClick={handleDownloadClick}
                 disabled={downloading}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 shrink-0"
+                className="flex items-center gap-1 md:gap-1.5 px-2 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-[10px] md:text-xs font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 shrink-0 shadow-sm"
               >
                 {downloading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-3 h-3 md:w-3.5 md:h-3.5 animate-spin" />
                 ) : (
-                  <FileText className="w-3.5 h-3.5" />
+                  <FileText className="w-3 h-3 md:w-3.5 md:h-3.5" />
                 )}
                 Download Report
               </button>

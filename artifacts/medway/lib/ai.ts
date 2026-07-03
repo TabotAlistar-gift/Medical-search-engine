@@ -10,6 +10,39 @@ function getGroq(): Groq | null {
   return groqClient;
 }
 
+// In-memory cache for medical AI query responses
+const aiCache = new Map<string, any>();
+
+// Helper to handle 429 Rate Limits by falling back to llama-3.1-8b-instant
+async function createChatCompletionWithFallback(
+  groq: Groq,
+  params: any
+): Promise<any> {
+  try {
+    return await groq.chat.completions.create(params);
+  } catch (err: any) {
+    const isRateLimit =
+      err?.status === 429 ||
+      (err?.message && err.message.includes("429")) ||
+      (err?.error?.message && err.error.message.includes("rate_limit_exceeded")) ||
+      (err?.message && err.message.toLowerCase().includes("rate limit"));
+
+    if (isRateLimit && params.model === "llama-3.3-70b-versatile") {
+      console.warn("Rate limit hit for llama-3.3-70b-versatile. Falling back to llama-3.1-8b-instant.");
+      try {
+        return await groq.chat.completions.create({
+          ...params,
+          model: "llama-3.1-8b-instant",
+        });
+      } catch (fallbackErr) {
+        console.error("Fallback model llama-3.1-8b-instant also failed:", fallbackErr);
+        throw fallbackErr;
+      }
+    }
+    throw err;
+  }
+}
+
 export interface OverviewSection {
   heading: string;
   points: string[];
@@ -31,6 +64,11 @@ export async function generateOverview(
   context: string,
   mode?: "patient" | "clinician"
 ): Promise<OverviewResponse> {
+  const cacheKey = `overview:${query.toLowerCase().trim()}:${mode || "patient"}`;
+  if (aiCache.has(cacheKey)) {
+    return aiCache.get(cacheKey)!;
+  }
+
   const groq = getGroq();
   const isClinician = mode === "clinician";
 
@@ -41,7 +79,7 @@ export async function generateOverview(
       .filter((s) => s.length > 30)
       .slice(0, 5)
       .join(" ");
-    return {
+    const fallbackRes = {
       intro:
         sentences ||
         `Search results for "${query}" are shown below from trusted medical sources.`,
@@ -57,6 +95,8 @@ export async function generateOverview(
         : "This information is for educational purposes only. Always consult a healthcare professional.",
       icd10: isClinician ? "ICD-10 Available Online" : undefined,
     };
+    aiCache.set(cacheKey, fallbackRes);
+    return fallbackRes;
   }
 
   const prompt = isClinician
@@ -104,7 +144,7 @@ Respond ONLY with valid JSON:
 }`;
 
   try {
-    const completion = await groq.chat.completions.create({
+    const completion = await createChatCompletionWithFallback(groq, {
       model: "llama-3.3-70b-versatile",
       messages: [
         {
@@ -123,7 +163,7 @@ Respond ONLY with valid JSON:
     const raw = completion.choices[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(raw);
 
-    return {
+    const result = {
       intro: parsed.intro ?? "",
       sections: Array.isArray(parsed.sections) ? parsed.sections : [],
       summary: parsed.intro ?? parsed.summary ?? "",
@@ -137,6 +177,8 @@ Respond ONLY with valid JSON:
         : "AI-generated overview for educational purposes only. Not a substitute for professional medical advice.",
       icd10: parsed.icd10 && parsed.icd10 !== "N/A" ? parsed.icd10 : undefined,
     };
+    aiCache.set(cacheKey, result);
+    return result;
   } catch (err) {
     console.error("Groq overview error:", err);
     const sentences = context
@@ -144,7 +186,7 @@ Respond ONLY with valid JSON:
       .filter((s) => s.length > 30)
       .slice(0, 5)
       .join(" ");
-    return {
+    const fallbackRes = {
       intro: sentences,
       sections: [],
       summary: sentences,
@@ -154,6 +196,8 @@ Respond ONLY with valid JSON:
       disclaimer:
         "This information is for educational purposes only. Always consult a healthcare professional.",
     };
+    aiCache.set(cacheKey, fallbackRes);
+    return fallbackRes;
   }
 }
 
@@ -202,7 +246,7 @@ For all medical questions:
 
 Context: The user was searching for "${query}".`;
 
-  const stream = await groq.chat.completions.create({
+  const stream = await createChatCompletionWithFallback(groq, {
     model: "llama-3.3-70b-versatile",
     messages: [
       { role: "system", content: systemPrompt },
@@ -322,11 +366,16 @@ export async function analyzeSymptoms(
   severity?: string,
   mode?: "patient" | "clinician"
 ): Promise<SymptomAnalysisResponse> {
+  const cacheKey = `symptoms:${symptoms.toLowerCase().trim()}:${age || ""}:${gender || ""}:${duration || ""}:${severity || ""}:${mode || "patient"}`;
+  if (aiCache.has(cacheKey)) {
+    return aiCache.get(cacheKey)!;
+  }
+
   const groq = getGroq();
   const isClinician = mode === "clinician";
 
   if (!groq) {
-    return {
+    const fallbackRes: SymptomAnalysisResponse = {
       intro: `Analysis of reported symptoms: "${symptoms}".`,
       primarySpotlight: {
         condition: "Common Cold",
@@ -396,10 +445,12 @@ export async function analyzeSymptoms(
       ],
       warning: "This symptom assessment is for educational purposes only. We advise you to consult local healthcare professionals in your area for any personal health concerns or if symptoms persist."
     };
+    aiCache.set(cacheKey, fallbackRes);
+    return fallbackRes;
   }
 
   try {
-    const completion = await groq.chat.completions.create({
+    const completion = await createChatCompletionWithFallback(groq, {
       model: "llama-3.3-70b-versatile",
       messages: [
         {
@@ -459,7 +510,9 @@ Return ONLY a valid JSON object matching the following structure:
     });
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
-    return JSON.parse(raw);
+    const result = JSON.parse(raw);
+    aiCache.set(cacheKey, result);
+    return result;
   } catch (err) {
     console.error("analyzeSymptoms error:", err);
     return {
@@ -477,6 +530,11 @@ Return ONLY a valid JSON object matching the following structure:
 }
 
 export async function generateStudyGuide(topic: string, context: string): Promise<StudyGuideResponse> {
+  const cacheKey = `studyguide:${topic.toLowerCase().trim()}`;
+  if (aiCache.has(cacheKey)) {
+    return aiCache.get(cacheKey)!;
+  }
+
   const groq = getGroq();
   if (!groq) {
     // Return high-quality exam mock data with 30 items for testing/fallback
@@ -495,7 +553,7 @@ export async function generateStudyGuide(topic: string, context: string): Promis
       answerIndex: 0,
       rationale: `First-line diagnostic confirmation testing is essential to confirm the diagnosis of ${topic} before initiating chronic or risk-carrying pharmacotherapy.`
     }));
-    return {
+    const fallbackRes = {
       facts: [
         `${topic} is a high-yield clinical topic frequently tested on medical board examinations.`,
         `Familiarity with pathognomonic findings, etiology, and primary interventions is key to success.`
@@ -504,10 +562,12 @@ export async function generateStudyGuide(topic: string, context: string): Promis
       quiz: mockQuiz,
       mnemonics: [`Mnemonic for ${topic}: R-E-S-E-A-R-C-H.`]
     };
+    aiCache.set(cacheKey, fallbackRes);
+    return fallbackRes;
   }
 
   // Promise for facts, mnemonics, and 30 flashcards
-  const studyGuidePromise = groq.chat.completions.create({
+  const studyGuidePromise = createChatCompletionWithFallback(groq, {
     model: "llama-3.3-70b-versatile",
     messages: [
       {
@@ -540,7 +600,7 @@ Return ONLY JSON:
   });
 
   // Promise for exactly 30 quiz questions
-  const quizPromise = groq.chat.completions.create({
+  const quizPromise = createChatCompletionWithFallback(groq, {
     model: "llama-3.3-70b-versatile",
     messages: [
       {
@@ -628,7 +688,9 @@ Return ONLY JSON:
       }
     }
 
-    return { facts, flashcards, quiz, mnemonics };
+    const result = { facts, flashcards, quiz, mnemonics };
+    aiCache.set(cacheKey, result);
+    return result;
   } catch (err) {
     console.error("generateStudyGuide Promise.all error:", err);
     
@@ -648,7 +710,7 @@ Return ONLY JSON:
       answerIndex: 0,
       rationale: `First-line diagnostic confirmation testing is essential to confirm the diagnosis of ${topic} before initiating chronic or risk-carrying pharmacotherapy.`
     }));
-    return {
+    const fallbackRes = {
       facts: [
         `${topic} is a high-yield clinical topic frequently tested on medical board examinations.`,
         `Familiarity with pathognomonic findings, etiology, and primary interventions is key to success.`
@@ -657,23 +719,64 @@ Return ONLY JSON:
       quiz: mockQuiz,
       mnemonics: [`Mnemonic for ${topic}: R-E-S-E-A-R-C-H.`]
     };
+    aiCache.set(cacheKey, fallbackRes);
+    return fallbackRes;
   }
 }
 
 export async function compareConditions(c1: string, c2: string): Promise<ComparisonResponse> {
+  const sortedNames = [c1.toLowerCase().trim(), c2.toLowerCase().trim()].sort();
+  const cacheKey = `compare:${sortedNames.join(":")}`;
+  
+  if (aiCache.has(cacheKey)) {
+    const cached = aiCache.get(cacheKey) as ComparisonResponse;
+    if (cached.headers[1].toLowerCase() === c1.toLowerCase()) {
+      return cached;
+    } else {
+      return {
+        headers: ["Feature", c1, c2],
+        rows: cached.rows.map(row => ({
+          feature: row.feature,
+          c1Value: row.c2Value,
+          c2Value: row.c1Value
+        }))
+      };
+    }
+  }
+
   const groq = getGroq();
   if (!groq) {
-    return {
+    const fallbackRes: ComparisonResponse = {
       headers: ["Feature", c1, c2],
       rows: [
-        { feature: "Primary Etiology", c1Value: "Refer to specific database details.", c2Value: "Refer to specific database details." },
-        { feature: "Pathophysiology", c1Value: "Condition-specific pathways.", c2Value: "Condition-specific pathways." }
+        {
+          feature: "Primary Etiology",
+          c1Value: `Biological, genetic, or environmental factors specific to ${c1}.`,
+          c2Value: `Biological, genetic, or environmental factors specific to ${c2}.`
+        },
+        {
+          feature: "Pathophysiology",
+          c1Value: `Distinct cellular or systemic dysfunction characteristic of ${c1}.`,
+          c2Value: `Distinct cellular or systemic dysfunction characteristic of ${c2}.`
+        },
+        {
+          feature: "Key Clinical Presentation",
+          c1Value: `Primary symptomatic patterns associated with ${c1}.`,
+          c2Value: `Primary symptomatic patterns associated with ${c2}.`
+        },
+        {
+          feature: "Consensus Management",
+          c1Value: `Standard pharmacological or supportive guidelines for ${c1}.`,
+          c2Value: `Standard pharmacological or supportive guidelines for ${c2}.`
+        }
       ]
     };
+    aiCache.set(cacheKey, fallbackRes);
+    return fallbackRes;
   }
 
   try {
-    const completion = await groq.chat.completions.create({
+    const completion = await createChatCompletionWithFallback(groq, {
       model: "llama-3.3-70b-versatile",
       messages: [
         {
@@ -699,10 +802,38 @@ export async function compareConditions(c1: string, c2: string): Promise<Compari
     });
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
-    return JSON.parse(raw);
+    const result = JSON.parse(raw);
+    aiCache.set(cacheKey, result);
+    return result;
   } catch (err) {
     console.error("compareConditions error:", err);
-    return { headers: ["Feature", c1, c2], rows: [] };
+    const fallbackRes: ComparisonResponse = {
+      headers: ["Feature", c1, c2],
+      rows: [
+        {
+          feature: "Primary Etiology",
+          c1Value: `Biological, genetic, or environmental factors specific to ${c1}.`,
+          c2Value: `Biological, genetic, or environmental factors specific to ${c2}.`
+        },
+        {
+          feature: "Pathophysiology",
+          c1Value: `Distinct cellular or systemic dysfunction characteristic of ${c1}.`,
+          c2Value: `Distinct cellular or systemic dysfunction characteristic of ${c2}.`
+        },
+        {
+          feature: "Key Clinical Presentation",
+          c1Value: `Primary symptomatic patterns associated with ${c1}.`,
+          c2Value: `Primary symptomatic patterns associated with ${c2}.`
+        },
+        {
+          feature: "Consensus Management",
+          c1Value: `Standard pharmacological or supportive guidelines for ${c1}.`,
+          c2Value: `Standard pharmacological or supportive guidelines for ${c2}.`
+        }
+      ]
+    };
+    aiCache.set(cacheKey, fallbackRes);
+    return fallbackRes;
   }
 }
 
@@ -723,9 +854,14 @@ export interface StudyNotesResponse {
 }
 
 export async function generateStudyNotes(topic: string, context: string): Promise<StudyNotesResponse> {
+  const cacheKey = `studynotes:${topic.toLowerCase().trim()}`;
+  if (aiCache.has(cacheKey)) {
+    return aiCache.get(cacheKey)!;
+  }
+
   const groq = getGroq();
   if (!groq) {
-    return {
+    const fallbackRes = {
       title: topic,
       introduction: `This is a comprehensive study reference introduction for ${topic}. Study notes compile definition, etiology, pathophysiology, diagnostics, and therapeutics.`,
       epidemiology: `Epidemiology and population distribution metrics for ${topic}.`,
@@ -739,10 +875,12 @@ export async function generateStudyNotes(topic: string, context: string): Promis
         `Recall primary treatment modalities.`
       ]
     };
+    aiCache.set(cacheKey, fallbackRes);
+    return fallbackRes;
   }
 
   try {
-    const completion = await groq.chat.completions.create({
+    const completion = await createChatCompletionWithFallback(groq, {
       model: "llama-3.3-70b-versatile",
       messages: [
         {
@@ -777,7 +915,7 @@ Return ONLY JSON format:
     if (!parsed.introduction || !parsed.pathophysiology) {
       throw new Error("Incomplete study notes JSON");
     }
-    return {
+    const result = {
       title: parsed.title || topic,
       introduction: parsed.introduction,
       epidemiology: parsed.epidemiology,
@@ -791,9 +929,11 @@ Return ONLY JSON format:
         `Recall primary treatment modalities.`
       ]
     };
+    aiCache.set(cacheKey, result);
+    return result;
   } catch (err) {
     console.error("generateStudyNotes error:", err);
-    return {
+    const fallbackRes = {
       title: topic,
       introduction: `This is a comprehensive study reference introduction for ${topic}. Study notes compile definition, etiology, pathophysiology, diagnostics, and therapeutics.`,
       epidemiology: `Epidemiology and population distribution metrics for ${topic}.`,
@@ -807,6 +947,8 @@ Return ONLY JSON format:
         `Recall primary treatment modalities.`
       ]
     };
+    aiCache.set(cacheKey, fallbackRes);
+    return fallbackRes;
   }
 }
 
